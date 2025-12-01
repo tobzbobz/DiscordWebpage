@@ -1,7 +1,7 @@
 import NextAuth from "next-auth"
 import Discord from "next-auth/providers/discord"
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const handler = NextAuth({
   providers: [
     Discord({
       clientId: process.env.DISCORD_CLIENT_ID!,
@@ -18,4 +18,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 })
 
-export const { GET, POST } = handlers
+export { handler as GET, handler as POST }
