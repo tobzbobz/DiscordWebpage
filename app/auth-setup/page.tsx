@@ -121,7 +121,7 @@ export default function AuthSetupPage() {
           <div className="flex items-start gap-3">
             <div>
               <p className="font-semibold text-blue-900">Before you start</p>
-              <p className="text-blue-800 text-sm mt-1">You'll need to create a Discord application at the Discord Developer Portal.</p>
+              <p className="text-blue-800 text-sm mt-1">You&apos;ll need to create a Discord application at the Discord Developer Portal.</p>
             </div>
           </div>
         </div>
@@ -209,13 +209,13 @@ export default function AuthSetupPage() {
         </div>
 
         <div className="bg-green-50 border-l-4 border-green-500 p-6 rounded-lg">
-          <h3 className="font-bold text-green-900 text-lg mb-3">🎉 You're Done!</h3>
+          <h3 className="font-bold text-green-900 text-lg mb-3">🎉 You&apos;re Done!</h3>
           <ol className="space-y-2 text-green-800 list-decimal list-inside">
             <li>Run <code className="bg-green-100 px-2 py-1 rounded">npm install</code> then <code className="bg-green-100 px-2 py-1 rounded">npm run dev</code></li>
             <li>Visit <code className="bg-green-100 px-2 py-1 rounded">http://localhost:3000</code></li>
-            <li>Click "Login with Discord"</li>
+            <li>Click &quot;Login with Discord&quot;</li>
             <li>Authorize your app</li>
-            <li>You'll see your ePRF form!</li>
+            <li>You&apos;ll see your ePRF form!</li>
           </ol>
         </div>
 
