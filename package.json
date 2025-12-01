@@ -1,0 +1,29 @@
+{
+  "name": "app123",
+  "version": "1.0.0",
+  "description": "Minimal Express app with Discord OAuth example",
+  "main": "server.js",
+  "scripts": {
+    "build": "echo \"no build\"",
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "lint": "echo 'No lint configured'"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": "18.x"
+  },
+  
+  "dependencies": {
+    "btoa": "^1.2.1",
+    "dotenv": "^16.3.1",
+    "serverless-http": "^3.0.0",
+    "express": "^4.18.4",
+    "node-fetch": "^2.6.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
