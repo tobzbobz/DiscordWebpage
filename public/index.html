@@ -1,0 +1,66 @@
+<!Doctype html>
+<html>
+    <head>
+        <title>Discord Token Generator</title>
+        <style>
+          .container {
+            display: flex;
+            width: 100%;
+            padding: 40px 0;
+            align-items: center;
+            justify-content: center;
+          }
+          
+          .container a {
+            background: #7289DA;
+            padding: 0 20px;
+            line-height: 35px;
+            color: #fff;
+            font-family: 'Helvetica', 'Arial', sans-sefir;
+            font-size: 20px;
+            display: block;
+            text-decoration: none;
+            border-radius: 3px;
+          }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+          <a id="login-link" href="/api/discord/login">Login through discord</a>
+        </div>
+        <div class="container">
+          <div id="status" style="color:#c00;">Loading status...</div>
+        </div>
+        <script>
+          async function refreshStatus() {
+            try {
+              const res = await fetch('/api/discord/health');
+              const json = await res.json();
+              const statusEl = document.getElementById('status');
+              const link = document.getElementById('login-link');
+              if (!json || !json.env) {
+                statusEl.innerText = 'Health check failed or returned unexpected data';
+                return;
+              }
+              const cid = json.env.client_id_set;
+              const csecret = json.env.client_secret_set;
+              if (!cid) {
+                statusEl.innerText = 'Error: Discord CLIENT_ID is not configured on the server. Contact server admin or set CLIENT_ID in .env / Vercel Environment Variables.';
+                link.style.pointerEvents = 'none';
+                link.style.opacity = '0.5';
+              } else if (!csecret) {
+                statusEl.innerText = 'Error: Discord CLIENT_SECRET is not configured. Link disabled.';
+                link.style.pointerEvents = 'none';
+                link.style.opacity = '0.5';
+              } else {
+                statusEl.innerText = 'OK: Discord Oauth variables detected. Click the login link.';
+              }
+            } catch (err) {
+              const statusEl = document.getElementById('status');
+              statusEl.innerText = 'Error reaching /api/discord/health: ' + (err.message || err);
+            }
+          }
+          refreshStatus();
+        </script>
+    </body>
+</html>
