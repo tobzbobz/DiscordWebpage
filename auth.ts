@@ -1,7 +1,8 @@
 import NextAuth from "next-auth"
+import type { NextAuthConfig } from "next-auth"
 import Discord from "next-auth/providers/discord"
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const config = {
   providers: [
     Discord({
       clientId: process.env.DISCORD_CLIENT_ID!,
@@ -16,4 +17,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session
     },
   },
-})
+} satisfies NextAuthConfig
+
+export const { handlers, auth, signIn, signOut } = NextAuth(config)
