@@ -1,4 +1,2 @@
-const serverless = require('serverless-http');
-const app = require('../server');
-
-module.exports = serverless(app);
+// This wrapper is no longer needed after conversion to Next.js API routes.
+module.exports = {};

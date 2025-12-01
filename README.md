@@ -1,6 +1,6 @@
 # app123
 
-Minimal Express app with Discord OAuth example. This app serves `index.html` and provides `/api/discord/login` and `/api/discord/callback` endpoints for Discord OAuth.
+Minimal Next.js app with Discord OAuth example. This app serves a React UI under `pages/index.js` and provides `/api/discord/*` API routes for Discord OAuth.
 
 ## Getting started
 
@@ -28,13 +28,13 @@ Build and run:
 
 ```powershell
 docker build -t app123 .
-docker run -p 50451:50451 --env-file .env app123
+docker run -p 3000:3000 --env-file .env app123
 ```
 
 ## Vercel Deployment notes
 
 - If your project is in a subfolder (e.g., `app123`), set the Project Root in Vercel to that folder.
-- Routes: the project uses `api/index.js` as a serverless wrapper for Express; /api/* endpoints are handled by the serverless function. Non-API routes are served as `index.html`.
+- The project has been converted to Next.js so the app uses `pages/index.js` for UI and `pages/api/*` routes for server APIs. Non-API routes are served by Next.js and static files are in `public/`.
 - Test the health endpoint after deployment to verify routing:
 
 ```text
@@ -69,7 +69,7 @@ On Vercel:
 
 Local development:
 - Copy `.env.example` to `.env` and fill `CLIENT_ID`, `CLIENT_SECRET`, and `PORT`.
-- Run `npm ci` and `npm start` or `npm run dev`, then visit `http://localhost:50451`
+- Run `npm ci` and `npm run dev`, then visit `http://localhost:3000`
 
 Checklist to verify OAuth flow:
 - Confirm `GET /api/discord/health` returns `client_id_set: true` and `client_secret_set: true`.
@@ -77,5 +77,5 @@ Checklist to verify OAuth flow:
 - Make sure the Discord Developer Portal has `https://<your-domain>/api/discord/callback` configured as an OAuth redirect.
 
 ## Notes
-- `node-fetch@2` is used to keep CommonJS require compatibility.
+- The app uses Next.js built-in `fetch` (Node 24 global `fetch`) for server API requests.
 - The app is minimal — feel free to add more robust error handling or middleware.

@@ -1,12 +1,12 @@
 {
   "name": "app123",
   "version": "1.0.0",
-  "description": "Minimal Express app with Discord OAuth example",
-  "main": "server.js",
+  "description": "Minimal Next.js app with Discord OAuth example",
+  
   "scripts": {
-    "build": "echo \"no build\"",
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "lint": "echo 'No lint configured'"
   },
   "keywords": [],
@@ -17,13 +17,12 @@
   },
   
   "dependencies": {
-    "btoa": "^1.2.1",
     "dotenv": "^16.3.1",
-    "serverless-http": "^3.0.0",
-    "express": "^4.18.4",
-    "node-fetch": "^2.6.7"
+    "next": "^14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "eslint": "^8.44.0"
   }
 }
