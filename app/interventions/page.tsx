@@ -331,7 +331,7 @@ export default function InterventionsPage() {
   }
 
   const handleIVOk = () => {
-    const parts = []
+    const parts: string[] = []
     if (ivSite) parts.push(ivSite)
     if (ivAttempts) parts.push(`${ivAttempts} attempts`)
     if (ivSuccessful) parts.push(ivSuccessful)
@@ -344,7 +344,7 @@ export default function InterventionsPage() {
   }
 
   const handleIOOk = () => {
-    const parts = []
+    const parts: string[] = []
     if (ioSite) parts.push(ioSite)
     if (ioAttempts) parts.push(`${ioAttempts} attempts`)
     if (ioSuccessful) parts.push(ioSuccessful)
@@ -357,7 +357,7 @@ export default function InterventionsPage() {
   }
 
   const handlePositioningOk = () => {
-    const parts = []
+    const parts: string[] = []
     if (positioningPosition) parts.push(positioningPosition)
     if (positioningLegsElevated) parts.push(`Legs: ${positioningLegsElevated}`)
     if (positioningOther) parts.push(positioningOther)
@@ -389,7 +389,7 @@ export default function InterventionsPage() {
   }
 
   const handleTourniquetOk = () => {
-    const parts = []
+    const parts: string[] = []
     if (tourniquetLocation) parts.push(tourniquetLocation)
     if (tourniquetSuccessful) parts.push(tourniquetSuccessful)
     setTourniquet(parts.join(', '))
