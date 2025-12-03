@@ -28,8 +28,8 @@ const LOCATION_TYPES = [
 export default function IncidentPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const incidentId = searchParams.get('id') || ''
-  const fleetId = searchParams.get('fleetId') || ''
+  const incidentId = searchParams?.get('id') || ''
+  const fleetId = searchParams?.get('fleetId') || ''
   
   const [caseType, setCaseType] = useState('MED')
   const [dateTimeOfCall, setDateTimeOfCall] = useState('')

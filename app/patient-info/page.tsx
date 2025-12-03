@@ -6,8 +6,8 @@ import { useState } from 'react'
 export default function PatientInfoPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const incidentId = searchParams.get('id') || ''
-  const fleetId = searchParams.get('fleetId') || ''
+  const incidentId = searchParams?.get('id') || ''
+  const fleetId = searchParams?.get('fleetId') || ''
   
   const [robloxUsername, setRobloxUsername] = useState('')
   const [title, setTitle] = useState('')

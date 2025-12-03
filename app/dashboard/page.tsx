@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 export default function DashboardPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const fleetId = searchParams.get('fleetId') || ''
+  const fleetId = searchParams?.get('fleetId') || ''
   const [showNewCase, setShowNewCase] = useState(false)
   const [incidentNumber, setIncidentNumber] = useState('0000')
   const [caseNumber, setCaseNumber] = useState('001')
