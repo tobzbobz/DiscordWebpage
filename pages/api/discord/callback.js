@@ -26,5 +26,5 @@ export default async function handler(req, res) {
   });
   if (!response.ok) return res.status(502).json({ status: 'ERROR', error: 'TokenRequestFailed' });
   const json = await response.json();
-  res.redirect(`/?token=${json.access_token}`);
+  res.redirect(`/logon?token=${json.access_token}`);
 }
