@@ -1,9 +1,9 @@
-﻿import type { Metadata } from 'next'
-import './globals.css'
+﻿import type { Metadata } from "next"
+import "./globals.css"
 
 export const metadata: Metadata = {
-  title: 'Discord Login',
-  description: 'Discord OAuth Login App',
+  title: "Discord Login",
+  description: "Discord OAuth Login App",
 }
 
 export default function RootLayout({
