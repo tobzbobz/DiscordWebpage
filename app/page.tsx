@@ -17,7 +17,7 @@ export default function HomePageClient() {
         setEnabled(Boolean(cid && csecret))
         if (!cid) setStatus('CLIENT_ID not configured on server')
         else if (!csecret) setStatus('CLIENT_SECRET not configured on server')
-        else setStatus('Ready — click Sign in with Discord')
+        else setStatus('Ready â€” click Sign in with Discord')
       })
       .catch(err => {
         if (!mounted) return
