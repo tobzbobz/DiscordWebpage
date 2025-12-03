@@ -413,8 +413,190 @@ export default function PatientInfoPage() {
                 </div>
               </div>
             </div>
-          </section>ut 
-        </div>
+              </>
+            )}
+
+            {currentPage === 2 && (
+              <>
+            <div className="form-row">
+              <div className="form-field">
+                <label className="field-label">Current smoker?</label>
+                <div style={{ display: 'flex', gap: '15px' }}>
+                  <label>
+                    <input
+                      type="radio"
+                      name="currentSmoker"
+                      value="Yes"
+                      checked={currentSmoker === 'Yes'}
+                      onChange={(e) => setCurrentSmoker(e.target.value)}
+                    />
+                    Yes
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="currentSmoker"
+                      value="No"
+                      checked={currentSmoker === 'No'}
+                      onChange={(e) => setCurrentSmoker(e.target.value)}
+                    />
+                    No
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-field">
+                <label className="field-label">Mental health crisis?</label>
+                <div style={{ display: 'flex', gap: '15px' }}>
+                  <label>
+                    <input
+                      type="radio"
+                      name="mentalHealthCrisis"
+                      value="Yes"
+                      checked={currentMentalHealthCrisis === 'Yes'}
+                      onChange={(e) => setCurrentMentalHealthCrisis(e.target.value)}
+                    />
+                    Yes
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="mentalHealthCrisis"
+                      value="No"
+                      checked={currentMentalHealthCrisis === 'No'}
+                      onChange={(e) => setCurrentMentalHealthCrisis(e.target.value)}
+                    />
+                    No
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-field">
+                <label className="field-label">Alcohol contribute?</label>
+                <div style={{ display: 'flex', gap: '15px' }}>
+                  <label>
+                    <input
+                      type="radio"
+                      name="alcoholContribute"
+                      value="Yes"
+                      checked={alcoholContribute === 'Yes'}
+                      onChange={(e) => setAlcoholContribute(e.target.value)}
+                    />
+                    Yes
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="alcoholContribute"
+                      value="No"
+                      checked={alcoholContribute === 'No'}
+                      onChange={(e) => setAlcoholContribute(e.target.value)}
+                    />
+                    No
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="alcoholContribute"
+                      value="Not Sure"
+                      checked={alcoholContribute === 'Not Sure'}
+                      onChange={(e) => setAlcoholContribute(e.target.value)}
+                    />
+                    Not Sure
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="alcoholContribute"
+                      value="3rd Party"
+                      checked={alcoholContribute === '3rd Party'}
+                      onChange={(e) => setAlcoholContribute(e.target.value)}
+                    />
+                    3rd Party
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-field">
+                <label className="field-label">Recreational drugs?</label>
+                <div style={{ display: 'flex', gap: '15px' }}>
+                  <label>
+                    <input
+                      type="radio"
+                      name="recreationalDrugs"
+                      value="Yes"
+                      checked={recreationalDrugs === 'Yes'}
+                      onChange={(e) => setRecreationalDrugs(e.target.value)}
+                    />
+                    Yes
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="recreationalDrugs"
+                      value="No"
+                      checked={recreationalDrugs === 'No'}
+                      onChange={(e) => setRecreationalDrugs(e.target.value)}
+                    />
+                    No
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-field" style={{ flex: '0 0 300px' }}>
+                <label className="field-label">Estimated impairment</label>
+                <select
+                  className="text-input"
+                  value={estimatedImpairment}
+                  onChange={(e) => setEstimatedImpairment(e.target.value)}
+                  disabled={!isImpairmentEnabled()}
+                  style={{ opacity: isImpairmentEnabled() ? 1 : 0.5 }}
+                >
+                  <option value="">---</option>
+                  <option value="Uninhibited">Uninhibited</option>
+                  <option value="Overly talkative">Overly talkative</option>
+                  <option value="Slurring">Slurring</option>
+                  <option value="Unintelligible words">Unintelligible words</option>
+                  <option value="Unable to mobilise">Unable to mobilise</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-field" style={{ flex: '0 0 150px' }}>
+                <label className="field-label">Estimated weight (kg)</label>
+                <input
+                  type="text"
+                  className="text-input"
+                  value={estimatedWeight}
+                  onChange={(e) => setEstimatedWeight(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-field" style={{ flex: '0 0 400px' }}>
+                <label className="field-label">Next of Kin</label>
+                <input
+                  type="text"
+                  className="text-input"
+                  value={nextOfKin}
+                  onChange={(e) => setNextOfKin(e.target.value)}
+                />
+              </div>
+            </div>
+              </>
+            )}
+          </section>
+        </main>
       </div>
 
       {showDatePicker && (
@@ -447,11 +629,7 @@ export default function PatientInfoPage() {
             </div>
           </div>
         </div>
-              </>
-            )}
-          </section>
-        </main>
-      </div>
+      )}
 
       <div className="eprf-footer incident-footer">
         <div className="footer-left">
