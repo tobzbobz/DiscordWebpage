@@ -1,7 +1,9 @@
 "use client"
 
 import { useSearchParams, useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+
+export const dynamic = 'force-dynamic'
 
 export default function DashboardPage() {
   const searchParams = useSearchParams()

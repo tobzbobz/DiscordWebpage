@@ -3,6 +3,8 @@
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
 
+export const dynamic = 'force-dynamic'
+
 export default function PatientInfoPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
