@@ -12,23 +12,40 @@ export default function PatientInfoPage() {
   const fleetId = searchParams?.get('fleetId') || ''
   
   const [robloxUsername, setRobloxUsername] = useState('')
+  const [patientNotIdentified, setPatientNotIdentified] = useState(false)
   const [title, setTitle] = useState('')
   const [firstName, setFirstName] = useState('')
   const [middleName, setMiddleName] = useState('')
   const [surname, setSurname] = useState('')
+  const [preferredName, setPreferredName] = useState('')
   const [sex, setSex] = useState('')
   const [dob, setDob] = useState('')
   const [age, setAge] = useState('')
+  const [ageType, setAgeType] = useState('')
+  const [ageEstimated, setAgeEstimated] = useState(false)
   const [ethnicity, setEthnicity] = useState('')
+  const [iwi, setIwi] = useState('')
   const [ptAddress, setPtAddress] = useState('')
-  const [suburb, setSuburb] = useState('')
-  const [billingAddress, setBillingAddress] = useState('')
-  const [postalAddress, setPostalAddress] = useState('')
+  const [billingPostalAddress, setBillingPostalAddress] = useState('')
   const [homePhone, setHomePhone] = useState('')
   const [workPhone, setWorkPhone] = useState('')
   const [mobilePhone, setMobilePhone] = useState('')
   const [email, setEmail] = useState('')
   const [residentCitizen, setResidentCitizen] = useState('')
+  
+  const [currentPage, setCurrentPage] = useState(1)
+  const [currentSmoker, setCurrentSmoker] = useState('')
+  const [currentMentalHealthCrisis, setCurrentMentalHealthCrisis] = useState('')
+  const [alcoholContribute, setAlcoholContribute] = useState('')
+  const [recreationalDrugs, setRecreationalDrugs] = useState('')
+  const [estimatedImpairment, setEstimatedImpairment] = useState('')
+  const [estimatedWeight, setEstimatedWeight] = useState('')
+  const [nextOfKin, setNextOfKin] = useState('')
+  
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [pickerDay, setPickerDay] = useState(3)
+  const [pickerMonth, setPickerMonth] = useState(12)
+  const [pickerYear, setPickerYear] = useState(2025)
 
   const handleLogout = () => {
     router.push('/')
@@ -41,20 +58,50 @@ export default function PatientInfoPage() {
     else if (section === 'primary-survey') router.push(`/primary-survey?${params}`)
   }
 
+  const openDatePicker = () => {
+    const now = new Date()
+    setPickerDay(now.getDate())
+    setPickerMonth(now.getMonth() + 1)
+    setPickerYear(now.getFullYear())
+    setShowDatePicker(true)
+  }
+
+  const handleSetDate = () => {
+    const formatted = `${String(pickerDay).padStart(2, '0')}/${String(pickerMonth).padStart(2, '0')}/${pickerYear}`
+    setDob(formatted)
+    setShowDatePicker(false)
+  }
+
+  const copyToBillingPostal = () => {
+    setBillingPostalAddress(ptAddress)
+  }
+
   const copyToBilling = () => {
-    setBillingAddress(ptAddress)
+    setBillingPostalAddress(ptAddress)
   }
 
   const copyToPostal = () => {
-    setPostalAddress(ptAddress)
+    setBillingPostalAddress(ptAddress)
   }
 
   const handlePrevious = () => {
-    navigateTo('incident')
+    if (currentPage === 2) {
+      setCurrentPage(1)
+    } else {
+      navigateTo('incident')
+    }
   }
 
   const handleNext = () => {
-    navigateTo('primary-survey')
+    if (currentPage === 1) {
+      setCurrentPage(2)
+    } else {
+      navigateTo('primary-survey')
+    }
+  }
+
+  const isImpairmentEnabled = () => {
+    return currentSmoker === 'Yes' || alcoholContribute === 'Yes' || recreationalDrugs === 'Yes'
   }
 
   return (
@@ -83,8 +130,10 @@ export default function PatientInfoPage() {
           <section className="incident-section">
             <h2 className="section-title">Patient Information</h2>
             
+            {currentPage === 1 && (
+              <>
             <div className="form-row">
-              <div className="form-field">
+              <div className="form-field" style={{ flex: '0 0 200px' }}>
                 <label className="field-label required">Roblox Username</label>
                 <input 
                   type="text" 
@@ -94,14 +143,14 @@ export default function PatientInfoPage() {
                 />
               </div>
               
-              <div className="form-field">
+              <div className="form-field" style={{ flex: '0 0 150px' }}>
                 <label className="field-label">Title</label>
                 <select 
                   className="text-input" 
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 >
-                  <option value=""></option>
+                  <option value="">---</option>
                   <option value="Mr">Mr</option>
                   <option value="Mrs">Mrs</option>
                   <option value="Ms">Ms</option>
@@ -111,6 +160,20 @@ export default function PatientInfoPage() {
                 </select>
               </div>
 
+              <div className="form-field" style={{ flex: '1' }}>
+                <label className="field-label" style={{ visibility: 'hidden' }}>Spacer</label>
+                <label className="patient-checkbox">
+                  <input 
+                    type="checkbox" 
+                    checked={patientNotIdentified}
+                    onChange={(e) => setPatientNotIdentified(e.target.checked)}
+                  />
+                  Patient not fully identified
+                </label>
+              </div>
+            </div>
+
+            <div className="form-row">
               <div className="form-field">
                 <label className="field-label required">First Name</label>
                 <input 
@@ -120,11 +183,9 @@ export default function PatientInfoPage() {
                   onChange={(e) => setFirstName(e.target.value)}
                 />
               </div>
-            </div>
 
-            <div className="form-row">
               <div className="form-field">
-                <label className="field-label">Middle Name(s)</label>
+                <label className="field-label">Middle Names</label>
                 <input 
                   type="text" 
                   className="text-input" 
@@ -134,7 +195,7 @@ export default function PatientInfoPage() {
               </div>
 
               <div className="form-field">
-                <label className="field-label required">Surname</label>
+                <label className="field-label required">Family Name</label>
                 <input 
                   type="text" 
                   className="text-input" 
@@ -142,68 +203,48 @@ export default function PatientInfoPage() {
                   onChange={(e) => setSurname(e.target.value)}
                 />
               </div>
+
+              <div className="form-field">
+                <label className="field-label">Preferred Name</label>
+                <input 
+                  type="text" 
+                  className="text-input" 
+                  value={preferredName}
+                  onChange={(e) => setPreferredName(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="form-row">
-              <div className="form-field">
+              <div className="form-field" style={{ flex: '0 0 200px' }}>
                 <label className="field-label required">Sex</label>
-                <div className="sex-options">
-                  <label className="sex-option">
-                    <input 
-                      type="radio" 
-                      name="sex" 
-                      value="Male"
-                      checked={sex === 'Male'}
-                      onChange={(e) => setSex(e.target.value)}
-                    />
-                    Male
-                  </label>
-                  <label className="sex-option">
-                    <input 
-                      type="radio" 
-                      name="sex" 
-                      value="Female"
-                      checked={sex === 'Female'}
-                      onChange={(e) => setSex(e.target.value)}
-                    />
-                    Female
-                  </label>
-                  <label className="sex-option">
-                    <input 
-                      type="radio" 
-                      name="sex" 
-                      value="Indeterminate"
-                      checked={sex === 'Indeterminate'}
-                      onChange={(e) => setSex(e.target.value)}
-                    />
-                    Indeterminate
-                  </label>
-                  <label className="sex-option">
-                    <input 
-                      type="radio" 
-                      name="sex" 
-                      value="Unknown"
-                      checked={sex === 'Unknown'}
-                      onChange={(e) => setSex(e.target.value)}
-                    />
-                    Unknown
-                  </label>
-                </div>
+                <select 
+                  className="text-input" 
+                  value={sex}
+                  onChange={(e) => setSex(e.target.value)}
+                >
+                  <option value="">---</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Indeterminate">Indeterminate</option>
+                  <option value="Unknown">Unknown</option>
+                </select>
               </div>
 
               <div className="form-field">
-                <label className="field-label required">Date of Birth</label>
+                <label className="field-label required">DoB</label>
                 <input 
                   type="text" 
                   className="text-input" 
                   value={dob}
-                  onChange={(e) => setDob(e.target.value)}
+                  onClick={openDatePicker}
+                  readOnly
                   placeholder="DD/MM/YYYY"
                 />
               </div>
 
-              <div className="form-field">
-                <label className="field-label">Age</label>
+              <div className="form-field" style={{ flex: '0 0 100px' }}>
+                <label className="field-label required">Age</label>
                 <input 
                   type="text" 
                   className="text-input" 
@@ -211,70 +252,55 @@ export default function PatientInfoPage() {
                   onChange={(e) => setAge(e.target.value)}
                 />
               </div>
-            </div>
 
-            <div className="form-row">
-              <div className="form-field">
-                <label className="field-label">Ethnicity</label>
-                <input 
-                  type="text" 
+              <div className="form-field" style={{ flex: '0 0 150px' }}>
+                <label className="field-label required">Age Type</label>
+                <select 
                   className="text-input" 
-                  value={ethnicity}
-                  onChange={(e) => setEthnicity(e.target.value)}
-                />
+                  value={ageType}
+                  onChange={(e) => setAgeType(e.target.value)}
+                >
+                  <option value="">---</option>
+                  <option value="Days">Day(s)</option>
+                  <option value="Months">Month(s)</option>
+                  <option value="Years">Year(s)</option>
+                </select>
+              </div>
+
+              <div className="form-field" style={{ flex: '0 0 80px' }}>
+                <label className="field-label" style={{ visibility: 'hidden' }}>Spacer</label>
+                <label className="patient-checkbox">
+                  <input 
+                    type="checkbox" 
+                    checked={ageEstimated}
+                    onChange={(e) => setAgeEstimated(e.target.checked)}
+                  />
+                  Est.
+                </label>
               </div>
             </div>
 
             <div className="form-row">
-              <div className="form-field full-width">
-                <label className="field-label">Pt Address</label>
-                <input 
-                  type="text" 
-                  className="text-input" 
+              <div className="form-field">
+                <label className="field-label required">Patient Address</label>
+                <textarea 
+                  className="text-input textarea-large" 
+                  rows={3}
                   value={ptAddress}
                   onChange={(e) => setPtAddress(e.target.value)}
                 />
               </div>
-            </div>
 
-            <div className="form-row">
               <div className="form-field">
-                <label className="field-label">Suburb</label>
-                <input 
-                  type="text" 
-                  className="text-input" 
-                  value={suburb}
-                  onChange={(e) => setSuburb(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-field full-width">
-                <label className="field-label">Billing Address</label>
-                <div className="input-with-copy">
-                  <input 
-                    type="text" 
-                    className="text-input" 
-                    value={billingAddress}
-                    onChange={(e) => setBillingAddress(e.target.value)}
+                <label className="field-label">Billing or Postal Address</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <button className="copy-btn-large" onClick={copyToBillingPostal}>Copy &gt;</button>
+                  <textarea 
+                    className="text-input textarea-large" 
+                    rows={3}
+                    value={billingPostalAddress}
+                    onChange={(e) => setBillingPostalAddress(e.target.value)}
                   />
-                  <button className="copy-btn" onClick={copyToBilling}>Copy</button>
-                </div>
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-field full-width">
-                <label className="field-label">Postal Address</label>
-                <div className="input-with-copy">
-                  <input 
-                    type="text" 
-                    className="text-input" 
-                    value={postalAddress}
-                    onChange={(e) => setPostalAddress(e.target.value)}
-                  />
-                  <button className="copy-btn" onClick={copyToPostal}>Copy</button>
                 </div>
               </div>
             </div>
@@ -284,9 +310,9 @@ export default function PatientInfoPage() {
                 <label className="field-label">Home Phone</label>
                 <input 
                   type="text" 
-                  className="text-input readonly preset" 
+                  className="text-input grayed-disabled" 
                   value={homePhone}
-                  readOnly
+                  onChange={(e) => setHomePhone(e.target.value)}
                 />
               </div>
 
@@ -294,9 +320,9 @@ export default function PatientInfoPage() {
                 <label className="field-label">Work Phone</label>
                 <input 
                   type="text" 
-                  className="text-input readonly preset" 
+                  className="text-input grayed-disabled" 
                   value={workPhone}
-                  readOnly
+                  onChange={(e) => setWorkPhone(e.target.value)}
                 />
               </div>
 
@@ -304,22 +330,127 @@ export default function PatientInfoPage() {
                 <label className="field-label">Mobile Phone</label>
                 <input 
                   type="text" 
-                  className="text-input readonly preset" 
+                  className="text-input grayed-disabled" 
                   value={mobilePhone}
-                  readOnly
+                  onChange={(e) => setMobilePhone(e.target.value)}
+                />
+              </div>
+
+              <div className="form-field">
+                <label className="field-label">Email</label>
+                <input 
+                  type="text" 
+                  className="text-input grayed-disabled" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
             </div>
 
             <div className="form-row">
-              <div className="form-field">
-                <label className="field-label">Email</label>
-                <input 
-                  type="text" 
-                  className="text-input readonly preset" 
-                  value={email}
-                  readOnly
-                />
+              <div className="form-field" style={{ flex: '0 0 300px' }}>
+                <label className="field-label required">Ethnicity</label>
+                <select 
+                  className="text-input" 
+                  value={ethnicity}
+                  onChange={(e) => setEthnicity(e.target.value)}
+                >
+                  <option value="">---</option>
+                  <option value="European">European</option>
+                  <option value="Maori">Māori</option>
+                  <option value="Pacific">Pacific</option>
+                  <option value="Asian">Asian</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div className="form-field" style={{ flex: '0 0 300px' }}>
+                <label className="field-label">Iwi</label>
+                <select 
+                  className="text-input" 
+                  value={iwi}
+                  onChange={(e) => setIwi(e.target.value)}
+                >
+                  <option value="">---</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-field" style={{ flex: '0 0 400px' }}>
+                <label className="field-label required">NZ Resident or Citizen</label>
+                <div className="sex-options">
+                  <label className="sex-option grayed-disabled">
+                    <input 
+                      type="radio" 
+                      name="residentCitizen" 
+                      value="Yes"
+                      checked={residentCitizen === 'Yes'}
+                      onChange={(e) => setResidentCitizen(e.target.value)}
+                    />
+                    Yes
+                  </label>
+                  <label className="sex-option grayed-disabled">
+                    <input 
+                      type="radio" 
+                      name="residentCitizen" 
+                      value="No"
+                      checked={residentCitizen === 'No'}
+                      onChange={(e) => setResidentCitizen(e.target.value)}
+                    />
+                    No
+                  </label>
+                  <label className="sex-option grayed-disabled">
+                    <input 
+                      type="radio" 
+                      name="residentCitizen" 
+                      value="Unknown"
+                      checked={residentCitizen === 'Unknown'}
+                      onChange={(e) => setResidentCitizen(e.target.value)}
+                    />
+                    Unknown
+                  </label>
+                </div>
+              </div>
+            </div>
+          </section>ut 
+        </div>
+      </div>
+
+      {showDatePicker && (
+        <div className="modal-overlay" onClick={() => setShowDatePicker(false)}>
+          <div className="datetime-picker date-only-picker" onClick={(e) => e.stopPropagation()}>
+            <div className="picker-header">Set Date</div>
+            <div className="picker-display">
+              Wed, December {String(pickerDay).padStart(2, '0')}, {pickerYear}
+            </div>
+            <div className="picker-controls">
+              <div className="picker-column">
+                <button className="picker-btn" onClick={() => setPickerDay(Math.min(31, pickerDay + 1))}>+</button>
+                <div className="picker-value highlight">{String(pickerDay).padStart(2, '0')}</div>
+                <button className="picker-btn" onClick={() => setPickerDay(Math.max(1, pickerDay - 1))}>-</button>
+              </div>
+              <div className="picker-column">
+                <button className="picker-btn" onClick={() => setPickerMonth(pickerMonth === 12 ? 1 : pickerMonth + 1)}>+</button>
+                <div className="picker-value">{String(pickerMonth).padStart(2, '0')}</div>
+                <button className="picker-btn" onClick={() => setPickerMonth(pickerMonth === 1 ? 12 : pickerMonth - 1)}>-</button>
+              </div>
+              <div className="picker-column">
+                <button className="picker-btn" onClick={() => setPickerYear(pickerYear + 1)}>+</button>
+                <div className="picker-value">{pickerYear}</div>
+                <button className="picker-btn" onClick={() => setPickerYear(Math.max(1900, pickerYear - 1))}>-</button>
+              </div>
+            </div>
+            <div className="picker-actions">
+              <button className="picker-action-btn cancel" onClick={() => setShowDatePicker(false)}>Clear</button>
+              <button className="picker-action-btn ok" onClick={handleSetDate}>Set</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}               />
               </div>
 
               <div className="form-field">
@@ -340,9 +471,9 @@ export default function PatientInfoPage() {
         <div className="footer-left">
           <button className="footer-btn internet">Internet</button>
           <button className="footer-btn server">Server</button>
-          <button className="footer-btn green">Add Patient</button>
-          <button className="footer-btn green">Transfer ePRF</button>
-          <button className="footer-btn green">Submit ePRF</button>
+        </div>
+        <div className="footer-center">
+          <span className="page-counter">Page {currentPage} of 2</span>
         </div>
         <div className="footer-right">
           <button className="footer-btn orange" onClick={handlePrevious}>{"< Previous"}</button>

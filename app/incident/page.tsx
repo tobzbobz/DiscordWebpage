@@ -8,10 +8,9 @@ export const runtime = 'edge'
 const CASE_TYPES = [
   { value: 'MED', label: 'MED', desc: 'Medical' },
   { value: 'ACC', label: 'ACC', desc: 'Trauma' },
-  { value: 'PTS', label: 'PTS', desc: 'Patient\nTransport' },
+  { value: 'PTS', label: 'PTS', desc: 'Patient Transport' },
   { value: 'PVT', label: 'PVT', desc: '', disabled: true },
   { value: 'NO_EPRF', label: 'No ePRF', desc: '' },
-  { value: 'EX_TRANSFER', label: 'Ex-Transfer/Event', desc: '' },
 ]
 
 const LOCATION_TYPES = [
@@ -27,6 +26,11 @@ const LOCATION_TYPES = [
   { label: 'Other', disabled: false }
 ]
 
+const REQUIRED_SECTIONS = {
+  incident: ['caseType', 'dateTimeOfCall', 'incidentLocation', 'locationType'],
+  'patient-info': ['robloxUsername', 'firstName', 'surname', 'sex', 'dob']
+}
+
 export default function IncidentPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -34,6 +38,7 @@ export default function IncidentPage() {
   const fleetId = searchParams?.get('fleetId') || ''
   
   const [caseType, setCaseType] = useState('MED')
+  const [exTransfer, setExTransfer] = useState(false)
   const [dateTimeOfCall, setDateTimeOfCall] = useState('')
   const [dispatchTime, setDispatchTime] = useState('')
   const [responding, setResponding] = useState('')
@@ -53,6 +58,23 @@ export default function IncidentPage() {
   const [pickerYear, setPickerYear] = useState(2025)
   const [pickerHour, setPickerHour] = useState(18)
   const [pickerMinute, setPickerMinute] = useState(55)
+  const [incompleteSections, setIncompleteSections] = useState<string[]>([])
+
+  const validateSection = () => {
+    const incomplete = []
+    if (!caseType || !dateTimeOfCall || !incidentLocation || !locationType) {
+      incomplete.push('incident')
+    }
+    return incomplete
+  }
+
+  const handleSubmit = () => {
+    const incomplete = validateSection()
+    setIncompleteSections(incomplete)
+    if (incomplete.length === 0) {
+      alert('ePRF submitted successfully!')
+    }
+  }
 
   const handleLogout = () => {
     router.push('/')
@@ -118,8 +140,8 @@ export default function IncidentPage() {
 
       <div className="incident-layout">
         <aside className="sidebar">
-          <button className="sidebar-btn active">Incident Information</button>
-          <button className="sidebar-btn" onClick={() => navigateTo('patient-info')}>Patient Information</button>
+          <button className={`sidebar-btn active${incompleteSections.includes('incident') ? ' incomplete' : ''}`}>Incident Information</button>
+          <button className={`sidebar-btn${incompleteSections.includes('patient-info') ? ' incomplete' : ''}`} onClick={() => navigateTo('patient-info')}>Patient Information</button>
           <button className="sidebar-btn" onClick={() => navigateTo('primary-survey')}>Primary Survey</button>
           <button className="sidebar-btn">Vital Obs / Treat</button>
           <button className="sidebar-btn">Hx Complaint</button>
@@ -158,6 +180,17 @@ export default function IncidentPage() {
                       </span>
                     </label>
                   ))}
+                </div>
+                <div style={{ marginTop: '10px' }}>
+                  <label className="case-type-option disabled">
+                    <input 
+                      type="checkbox" 
+                      checked={exTransfer}
+                      onChange={(e) => setExTransfer(e.target.checked)}
+                      disabled
+                    />
+                    <span className="radio-label">Ex-Transfer/Event</span>
+                  </label>
                 </div>
               </div>
             </div>
@@ -281,7 +314,7 @@ export default function IncidentPage() {
           <button className="footer-btn server">Server</button>
           <button className="footer-btn green">Add Patient</button>
           <button className="footer-btn green">Transfer ePRF</button>
-          <button className="footer-btn green">Submit ePRF</button>
+          <button className="footer-btn green" onClick={handleSubmit}>Submit ePRF</button>
         </div>
         <div className="footer-right">
           <button className="footer-btn orange">{"< Previous"}</button>

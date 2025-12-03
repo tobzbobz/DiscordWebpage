@@ -608,6 +608,17 @@ main {
   border-left: 4px solid #7a9dc4;
 }
 
+.sidebar-btn.incomplete {
+  background: linear-gradient(to right, #c44444 0%, #a03838 100%);
+  color: white;
+  border-left: 4px solid #ff6b6b;
+}
+
+.sidebar-btn.active.incomplete {
+  background: linear-gradient(to right, #c44444 0%, #a03838 100%);
+  border-left: 4px solid #ff6b6b;
+}
+
 .incident-content {
   flex: 1;
   overflow-y: auto;
@@ -651,7 +662,12 @@ main {
 }
 
 .form-field.master-incident {
-  flex: 0 0 300px;
+  flex: 0 0 180px;
+}
+
+.form-field.master-incident .text-input {
+  font-size: 13px;
+  letter-spacing: 0.5px;
 }
 
 .form-field.case-types {
@@ -715,11 +731,6 @@ main {
   text-shadow: 0 1px 1px rgba(0,0,0,0.2);
   transition: all 0.15s ease;
 }
-
-.now-btn:hover {
-  background: linear-gradient(to bottom, #5a7d9c 0%, #4d6a85 100%);
-}
-
 .case-type-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -728,7 +739,7 @@ main {
 
 .case-type-option {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   cursor: pointer;
   font-size: 14px;
@@ -739,21 +750,26 @@ main {
   cursor: not-allowed;
 }
 
-.case-type-option input[type="radio"] {
-  margin-top: 3px;
+.case-type-option input[type="radio"],
+.case-type-option input[type="checkbox"] {
   cursor: pointer;
 }
 
-.case-type-option.disabled input[type="radio"] {
+.case-type-option.disabled input[type="radio"],
+.case-type-option.disabled input[type="checkbox"] {
   cursor: not-allowed;
 }
 
 .radio-label {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 6px;
 }
 
+.radio-desc {
+  font-size: 11px;
+  color: #5a7a9a;
+}
 .radio-desc {
   font-size: 11px;
   color: #5a7a9a;
@@ -772,6 +788,7 @@ main {
   gap: 8px;
   cursor: pointer;
   font-size: 14px;
+  white-space: nowrap;
 }
 
 .location-type-option.disabled {
@@ -789,6 +806,20 @@ main {
 
 .incident-footer {
   justify-content: space-between;
+}
+
+.incident-footer .footer-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.page-counter {
+  font-size: 15px;
+  font-weight: bold;
+  color: #2d4a5f;
+  text-shadow: 0 1px 1px rgba(255,255,255,0.5);
 }
 
 .incident-footer .footer-left {
@@ -977,4 +1008,95 @@ main {
 
 .copy-btn:active {
   transform: translateY(1px);
+}
+
+.copy-btn-large {
+  background: linear-gradient(to bottom, #4a6d8c 0%, #3d5a75 100%);
+  color: white;
+  border: 2px solid #2d4a5f;
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: bold;
+  border-radius: 4px;
+  cursor: pointer;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.copy-btn-large:hover {
+  background: linear-gradient(to bottom, #5a7d9c 0%, #4d6a85 100%);
+}
+
+.copy-btn-large:active {
+  transform: translateY(1px);
+}
+
+.patient-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #2d4a5f;
+  font-weight: normal;
+  padding-top: 6px;
+}
+
+.patient-checkbox input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+.textarea-large {
+  min-height: 70px;
+  resize: vertical;
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.4;
+}
+
+.grayed-disabled {
+  background: #c8d5e3 !important;
+  color: #5a6a7a;
+}
+
+.grayed-disabled input[type="radio"] {
+  opacity: 0.6;
+}
+
+.date-only-picker .picker-controls {
+  gap: 12px;
+}
+
+.date-only-picker .picker-column {
+  min-width: 80px;
+}
+
+.date-only-picker .picker-btn {
+  width: 80px;
+}
+
+/* Primary Survey Page */
+.survey-options {
+  display: flex;
+  gap: 30px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.survey-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  color: #2d4a5f;
+  font-weight: normal;
+}
+
+.survey-option input[type="radio"] {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
 }
