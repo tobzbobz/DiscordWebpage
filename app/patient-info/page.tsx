@@ -447,22 +447,8 @@ export default function PatientInfoPage() {
             </div>
           </div>
         </div>
-      )}
-    </div>
-  )
-}               />
-              </div>
-
-              <div className="form-field">
-                <label className="field-label">Resident or Citizen</label>
-                <input 
-                  type="text" 
-                  className="text-input readonly preset" 
-                  value={residentCitizen}
-                  readOnly
-                />
-              </div>
-            </div>
+              </>
+            )}
           </section>
         </main>
       </div>
