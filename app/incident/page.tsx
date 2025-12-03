@@ -3,8 +3,7 @@
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-export const dynamic = 'force-dynamic'
-export const runtime = 'nodejs'
+export const runtime = 'edge'
 
 const CASE_TYPES = [
   { value: 'MED', label: 'MED', desc: 'Medical' },
