@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export default function PatientInfoPage() {
   const searchParams = useSearchParams()

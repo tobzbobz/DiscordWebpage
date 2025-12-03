@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export default function DashboardPage() {
   const searchParams = useSearchParams()

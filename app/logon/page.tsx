@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 const VALID_CALLSIGNS = [
   /^HAM-([1-9]|10)$/i,
