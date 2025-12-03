@@ -61,7 +61,7 @@ export default function IncidentPage() {
   const [incompleteSections, setIncompleteSections] = useState<string[]>([])
 
   const validateSection = () => {
-    const incomplete = []
+    const incomplete: string[] = []
     if (!caseType || !dateTimeOfCall || !incidentLocation || !locationType) {
       incomplete.push('incident')
     }
