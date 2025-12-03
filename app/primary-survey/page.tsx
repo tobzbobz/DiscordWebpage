@@ -27,6 +27,7 @@ export default function PrimarySurveyPage() {
     if (section === 'incident') router.push(`/incident?${params}`)
     else if (section === 'patient-info') router.push(`/patient-info?${params}`)
     else if (section === 'primary-survey') router.push(`/primary-survey?${params}`)
+    else if (section === 'vital-obs') router.push(`/vital-obs?${params}`)
   }
 
   const handlePrevious = () => {
@@ -34,7 +35,7 @@ export default function PrimarySurveyPage() {
   }
 
   const handleNext = () => {
-    // Navigate to next section when created
+    navigateTo('vital-obs')
   }
 
   return (

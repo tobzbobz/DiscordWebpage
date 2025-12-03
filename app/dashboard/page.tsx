@@ -95,6 +95,7 @@ export default function DashboardPage() {
                     className="incident-input"
                     min="0"
                     max="9999"
+                    style={{ width: '90px' }}
                   />
                   <div className="incident-arrows">
                     <button className="arrow-btn up" onClick={incrementIncident}>▲</button>
@@ -107,6 +108,7 @@ export default function DashboardPage() {
                   value={caseNumber}
                   readOnly
                   className="incident-part readonly"
+                  style={{ width: '50px', backgroundColor: '#c0d0e0', color: '#556575' }}
                 />
                 <span className="separator">-</span>
                 <input

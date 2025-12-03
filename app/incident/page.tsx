@@ -175,7 +175,7 @@ export default function IncidentPage() {
                         disabled={ct.disabled}
                       />
                       <span className="radio-label">
-                        {ct.label}
+                        <span>{ct.label}</span>
                         {ct.desc && <span className="radio-desc">{ct.desc}</span>}
                       </span>
                     </label>
@@ -317,7 +317,7 @@ export default function IncidentPage() {
           <button className="footer-btn green" onClick={handleSubmit}>Submit ePRF</button>
         </div>
         <div className="footer-right">
-          <button className="footer-btn orange">{"< Previous"}</button>
+          <button className="footer-btn orange" onClick={() => router.push(`/dashboard?fleetId=${fleetId}`)}>{"< Previous"}</button>
           <button className="footer-btn orange" onClick={() => navigateTo('patient-info')}>{"Next >"}</button>
         </div>
       </div>

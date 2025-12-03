@@ -239,7 +239,6 @@ export default function PatientInfoPage() {
                   value={dob}
                   onClick={openDatePicker}
                   readOnly
-                  placeholder="DD/MM/YYYY"
                 />
               </div>
 
@@ -291,17 +290,18 @@ export default function PatientInfoPage() {
                 />
               </div>
 
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', alignSelf: 'flex-end', marginBottom: '8px' }}>
+                <button className="copy-btn-large" onClick={copyToBillingPostal}>Copy &gt;</button>
+              </div>
+
               <div className="form-field">
                 <label className="field-label">Billing or Postal Address</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <button className="copy-btn-large" onClick={copyToBillingPostal}>Copy &gt;</button>
-                  <textarea 
-                    className="text-input textarea-large" 
-                    rows={3}
-                    value={billingPostalAddress}
-                    onChange={(e) => setBillingPostalAddress(e.target.value)}
-                  />
-                </div>
+                <textarea 
+                  className="text-input textarea-large" 
+                  rows={3}
+                  value={billingPostalAddress}
+                  onChange={(e) => setBillingPostalAddress(e.target.value)}
+                />
               </div>
             </div>
 
@@ -351,7 +351,7 @@ export default function PatientInfoPage() {
               <div className="form-field" style={{ flex: '0 0 300px' }}>
                 <label className="field-label required">Ethnicity</label>
                 <select 
-                  className="text-input" 
+                  className="text-input grayed-disabled" 
                   value={ethnicity}
                   onChange={(e) => setEthnicity(e.target.value)}
                 >
@@ -367,7 +367,7 @@ export default function PatientInfoPage() {
               <div className="form-field" style={{ flex: '0 0 300px' }}>
                 <label className="field-label">Iwi</label>
                 <select 
-                  className="text-input" 
+                  className="text-input grayed-disabled" 
                   value={iwi}
                   onChange={(e) => setIwi(e.target.value)}
                 >
@@ -419,10 +419,10 @@ export default function PatientInfoPage() {
             {currentPage === 2 && (
               <>
             <div className="form-row">
-              <div className="form-field">
+              <div className="form-field" style={{ flex: 1 }}>
                 <label className="field-label">Current smoker?</label>
-                <div style={{ display: 'flex', gap: '15px' }}>
-                  <label>
+                <div className="substance-options">
+                  <label className="substance-question">
                     <input
                       type="radio"
                       name="currentSmoker"
@@ -432,7 +432,7 @@ export default function PatientInfoPage() {
                     />
                     Yes
                   </label>
-                  <label>
+                  <label className="substance-question">
                     <input
                       type="radio"
                       name="currentSmoker"
@@ -444,13 +444,11 @@ export default function PatientInfoPage() {
                   </label>
                 </div>
               </div>
-            </div>
 
-            <div className="form-row">
-              <div className="form-field">
-                <label className="field-label">Mental health crisis?</label>
-                <div style={{ display: 'flex', gap: '15px' }}>
-                  <label>
+              <div className="form-field" style={{ flex: 1 }}>
+                <label className="field-label">Current mental health crisis?</label>
+                <div className="substance-options">
+                  <label className="substance-question">
                     <input
                       type="radio"
                       name="mentalHealthCrisis"
@@ -460,7 +458,7 @@ export default function PatientInfoPage() {
                     />
                     Yes
                   </label>
-                  <label>
+                  <label className="substance-question">
                     <input
                       type="radio"
                       name="mentalHealthCrisis"
@@ -475,10 +473,10 @@ export default function PatientInfoPage() {
             </div>
 
             <div className="form-row">
-              <div className="form-field">
-                <label className="field-label">Alcohol contribute?</label>
-                <div style={{ display: 'flex', gap: '15px' }}>
-                  <label>
+              <div className="form-field" style={{ flex: 1 }}>
+                <label className="field-label">Did alcohol contribute?</label>
+                <div className="substance-options">
+                  <label className="substance-question">
                     <input
                       type="radio"
                       name="alcoholContribute"
@@ -488,7 +486,7 @@ export default function PatientInfoPage() {
                     />
                     Yes
                   </label>
-                  <label>
+                  <label className="substance-question">
                     <input
                       type="radio"
                       name="alcoholContribute"
@@ -498,7 +496,7 @@ export default function PatientInfoPage() {
                     />
                     No
                   </label>
-                  <label>
+                  <label className="substance-question">
                     <input
                       type="radio"
                       name="alcoholContribute"
@@ -508,7 +506,7 @@ export default function PatientInfoPage() {
                     />
                     Not Sure
                   </label>
-                  <label>
+                  <label className="substance-question">
                     <input
                       type="radio"
                       name="alcoholContribute"
@@ -520,39 +518,9 @@ export default function PatientInfoPage() {
                   </label>
                 </div>
               </div>
-            </div>
 
-            <div className="form-row">
-              <div className="form-field">
-                <label className="field-label">Recreational drugs?</label>
-                <div style={{ display: 'flex', gap: '15px' }}>
-                  <label>
-                    <input
-                      type="radio"
-                      name="recreationalDrugs"
-                      value="Yes"
-                      checked={recreationalDrugs === 'Yes'}
-                      onChange={(e) => setRecreationalDrugs(e.target.value)}
-                    />
-                    Yes
-                  </label>
-                  <label>
-                    <input
-                      type="radio"
-                      name="recreationalDrugs"
-                      value="No"
-                      checked={recreationalDrugs === 'No'}
-                      onChange={(e) => setRecreationalDrugs(e.target.value)}
-                    />
-                    No
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-field" style={{ flex: '0 0 300px' }}>
-                <label className="field-label">Estimated impairment</label>
+              <div className="form-field" style={{ flex: 1 }}>
+                <label className="field-label">Estimated impairment level</label>
                 <select
                   className="text-input"
                   value={estimatedImpairment}
@@ -571,7 +539,33 @@ export default function PatientInfoPage() {
             </div>
 
             <div className="form-row">
-              <div className="form-field" style={{ flex: '0 0 150px' }}>
+              <div className="form-field" style={{ flex: 1 }}>
+                <label className="field-label">Did patient take recreational drugs?</label>
+                <div className="substance-options">
+                  <label className="substance-question">
+                    <input
+                      type="radio"
+                      name="recreationalDrugs"
+                      value="Yes"
+                      checked={recreationalDrugs === 'Yes'}
+                      onChange={(e) => setRecreationalDrugs(e.target.value)}
+                    />
+                    Yes
+                  </label>
+                  <label className="substance-question">
+                    <input
+                      type="radio"
+                      name="recreationalDrugs"
+                      value="No"
+                      checked={recreationalDrugs === 'No'}
+                      onChange={(e) => setRecreationalDrugs(e.target.value)}
+                    />
+                    No
+                  </label>
+                </div>
+              </div>
+
+              <div className="form-field" style={{ flex: 1 }}>
                 <label className="field-label">Estimated weight (kg)</label>
                 <input
                   type="text"
@@ -583,7 +577,7 @@ export default function PatientInfoPage() {
             </div>
 
             <div className="form-row">
-              <div className="form-field" style={{ flex: '0 0 400px' }}>
+              <div className="form-field full-width">
                 <label className="field-label">Next of Kin</label>
                 <input
                   type="text"
