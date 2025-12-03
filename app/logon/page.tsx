@@ -33,7 +33,7 @@ export default function LogonPage() {
 
   useEffect(() => {
     // Get token from URL or fetch user info
-    const token = searchParams.get('token')
+    const token = searchParams?.get('token')
     if (token) {
       // Fetch Discord user info
       fetch('https://discord.com/api/users/@me', {
