@@ -1,5 +1,17 @@
+import fs from 'fs';
+import path from 'path';
+
 export default function handler(req, res) {
-  const pkg = require('../../../package.json');
+  // Read package.json at runtime to avoid bundler/module resolution issues during build
+  let pkg = { name: null, version: null };
+  try {
+    const pkgPath = path.join(process.cwd(), 'package.json');
+    const raw = fs.readFileSync(pkgPath, 'utf8');
+    pkg = JSON.parse(raw);
+  } catch (e) {
+    // ignore — pkg will be empty
+  }
+
   res.json({
     ok: true,
     name: pkg.name,
