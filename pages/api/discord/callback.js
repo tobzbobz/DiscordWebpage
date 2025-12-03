@@ -1,6 +1,7 @@
 export default async function handler(req, res) {
-  const CLIENT_ID = process.env.CLIENT_ID;
-  const CLIENT_SECRET = process.env.CLIENT_SECRET;
+  // Prefer DISCORD_CLIENT_* env names, but fall back to legacy names
+  const CLIENT_ID = process.env.DISCORD_CLIENT_ID || process.env.CLIENT_ID;
+  const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || process.env.CLIENT_SECRET;
   if (!CLIENT_ID || !CLIENT_SECRET) return res.status(500).json({ status: 'ERROR', error: 'NotConfigured' });
   const code = req.query.code;
   if (!code) return res.status(400).json({ status: 'ERROR', error: 'NoCodeProvided' });
