@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { setCurrentUserAsync } from '../utils/userService'
 
 export const runtime = 'edge'
 
@@ -28,10 +29,12 @@ export default function LogonPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [discordId, setDiscordId] = useState('')
+  const [discordUsername, setDiscordUsername] = useState('')
   const [callsign, setCallsign] = useState('')
   const [vehicle, setVehicle] = useState('')
   const [errors, setErrors] = useState<{discordId?: string, callsign?: string, vehicle?: string}>({})
   const [loading, setLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     // Get token from URL or fetch user info
@@ -44,6 +47,7 @@ export default function LogonPage() {
         .then(r => r.json())
         .then(user => {
           setDiscordId(user.id || '')
+          setDiscordUsername(user.username || '')
           setLoading(false)
         })
         .catch(() => {
@@ -60,7 +64,7 @@ export default function LogonPage() {
     return VALID_CALLSIGNS.some(pattern => pattern.test(value))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const newErrors: {discordId?: string, callsign?: string, vehicle?: string} = {}
 
@@ -85,8 +89,22 @@ export default function LogonPage() {
 
     // If no errors, proceed
     if (Object.keys(newErrors).length === 0) {
-      // Redirect to dashboard with callsign as fleet ID
-      router.push(`/dashboard?fleetId=${encodeURIComponent(callsign)}`)
+      setIsSubmitting(true)
+      try {
+        // Save user to localStorage and database
+        await setCurrentUserAsync({
+          discordId,
+          discordUsername,
+          callsign,
+          vehicle,
+          loginTime: new Date().toISOString()
+        })
+        // Redirect to dashboard with callsign as fleet ID
+        router.push(`/dashboard?fleetId=${encodeURIComponent(callsign)}`)
+      } catch (error) {
+        console.error('Login error:', error)
+        setIsSubmitting(false)
+      }
     }
   }
 
@@ -116,6 +134,7 @@ export default function LogonPage() {
               value={discordId}
               onChange={(e) => setDiscordId(e.target.value)}
               readOnly
+              disabled
               className={`form-input readonly ${errors.discordId ? 'error' : ''}`}
             />
             {errors.discordId && <div className="field-error">{errors.discordId}</div>}
@@ -163,7 +182,9 @@ export default function LogonPage() {
           </div>
 
           <div className="form-actions">
-            <button type="submit" className="btn-submit">Sign In</button>
+            <button type="submit" className="btn-submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Signing In...' : 'Sign In'}
+            </button>
           </div>
         </form>
       </div>

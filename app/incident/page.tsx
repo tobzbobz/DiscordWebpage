@@ -1,7 +1,14 @@
 "use client"
 
 import { useSearchParams, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { validateAllSections, getSectionDisplayName } from '../utils/validation'
+import { handleAddPatient as addPatientService, handleSubmitEPRF as submitEPRFService, getCurrentPatientLetter } from '../utils/eprfService'
+import ConfirmationModal, { ValidationErrorModal, SuccessModal } from '../components/ConfirmationModal'
+import TransferModal from '../components/TransferModal'
+import { saveEPRFRecord, createEPRFRecord, getEPRFRecord } from '../utils/eprfHistoryService'
+import { getCurrentUser } from '../utils/userService'
+import { isAdmin } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
@@ -59,25 +66,201 @@ export default function IncidentPage() {
   const [pickerHour, setPickerHour] = useState(18)
   const [pickerMinute, setPickerMinute] = useState(55)
   const [incompleteSections, setIncompleteSections] = useState<string[]>([])
+  const [fieldErrors, setFieldErrors] = useState<string[]>([])
+  const [patientLetter, setPatientLetter] = useState('A')
 
-  const validateSection = () => {
-    const incomplete: string[] = []
-    if (!caseType || !dateTimeOfCall || !incidentLocation || !locationType) {
-      incomplete.push('incident')
+  // Modal states
+  const [showAddPatientModal, setShowAddPatientModal] = useState(false)
+  const [showSubmitModal, setShowSubmitModal] = useState(false)
+  const [showValidationErrorModal, setShowValidationErrorModal] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [showTransferModal, setShowTransferModal] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<{[section: string]: string[]}>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [successMessage, setSuccessMessage] = useState({ title: '', message: '' })
+
+  // Load patient letter on mount
+  useEffect(() => {
+    if (incidentId) {
+      setPatientLetter(getCurrentPatientLetter(incidentId))
+      
+      // Create or get ePRF record
+      const user = getCurrentUser()
+      if (user) {
+        const existingRecord = getEPRFRecord(incidentId, getCurrentPatientLetter(incidentId))
+        if (!existingRecord) {
+          createEPRFRecord(incidentId, getCurrentPatientLetter(incidentId), user.discordId, user.callsign, fleetId)
+        }
+      }
     }
-    return incomplete
-  }
+  }, [incidentId, fleetId])
+
+  // Load saved data on mount
+  useEffect(() => {
+    if (incidentId) {
+      const saved = localStorage.getItem(`incident_${incidentId}`)
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          if (parsed.caseType) setCaseType(parsed.caseType)
+          if (parsed.exTransfer !== undefined) setExTransfer(parsed.exTransfer)
+          if (parsed.dateTimeOfCall) setDateTimeOfCall(parsed.dateTimeOfCall)
+          if (parsed.dispatchTime) setDispatchTime(parsed.dispatchTime)
+          if (parsed.responding) setResponding(parsed.responding)
+          if (parsed.atScene) setAtScene(parsed.atScene)
+          if (parsed.atPatient) setAtPatient(parsed.atPatient)
+          if (parsed.departScene) setDepartScene(parsed.departScene)
+          if (parsed.atDestination) setAtDestination(parsed.atDestination)
+          if (parsed.destination) setDestination(parsed.destination)
+          if (parsed.incidentLocation) setIncidentLocation(parsed.incidentLocation)
+          if (parsed.locationType) setLocationType(parsed.locationType)
+          if (parsed.locationTypeOther) setLocationTypeOther(parsed.locationTypeOther)
+        } catch (e) {
+          console.error('Failed to load saved incident data:', e)
+        }
+      }
+    }
+  }, [incidentId])
+
+  // Save data whenever it changes
+  useEffect(() => {
+    if (incidentId) {
+      const data = {
+        caseType,
+        exTransfer,
+        dateTimeOfCall,
+        dispatchTime,
+        responding,
+        atScene,
+        atPatient,
+        departScene,
+        atDestination,
+        destination,
+        incidentLocation,
+        locationType,
+        locationTypeOther
+      }
+      localStorage.setItem(`incident_${incidentId}`, JSON.stringify(data))
+    }
+  }, [incidentId, caseType, exTransfer, dateTimeOfCall, dispatchTime, responding, atScene, atPatient, departScene, atDestination, destination, incidentLocation, locationType, locationTypeOther])
 
   const handleSubmit = () => {
-    const incomplete = validateSection()
-    setIncompleteSections(incomplete)
-    if (incomplete.length === 0) {
-      alert('ePRF submitted successfully!')
+    // Validate all sections across the entire ePRF
+    const result = validateAllSections(incidentId)
+    setIncompleteSections(result.incompleteSections)
+    
+    if (result.isValid) {
+      setShowSubmitModal(true)
+    } else {
+      setValidationErrors(result.fieldErrors)
+      setShowValidationErrorModal(true)
     }
+  }
+
+  const confirmSubmitEPRF = async () => {
+    setIsSubmitting(true)
+    try {
+      const result = await submitEPRFService(incidentId, fleetId)
+      
+      if (result.success) {
+        setShowSubmitModal(false)
+        setSuccessMessage({
+          title: 'ePRF Submitted Successfully!',
+          message: `The ePRF for Patient ${patientLetter} has been submitted.\n\nA PDF copy has been downloaded to your device and the record has been saved.`
+        })
+        setShowSuccessModal(true)
+      } else if (result.validationResult) {
+        setShowSubmitModal(false)
+        setValidationErrors(result.validationResult.fieldErrors)
+        setIncompleteSections(result.validationResult.incompleteSections)
+        setShowValidationErrorModal(true)
+      }
+    } catch (error) {
+      console.error('Submit error:', error)
+      alert('An error occurred while submitting. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleAddPatientClick = () => {
+    setShowAddPatientModal(true)
+  }
+
+  const confirmAddPatient = async () => {
+    setIsSubmitting(true)
+    try {
+      const result = await addPatientService(incidentId)
+      
+      if (result.success) {
+        setShowAddPatientModal(false)
+        setPatientLetter(result.newLetter)
+        setSuccessMessage({
+          title: 'Patient Added Successfully!',
+          message: `Patient ${patientLetter} has been saved.\n\nYou are now working on Patient ${result.newLetter}.\n\nThe form has been cleared for the new patient.`
+        })
+        setShowSuccessModal(true)
+        
+        setTimeout(() => {
+          const params = new URLSearchParams({ id: incidentId, fleetId })
+          router.push(`/patient-info?${params}`)
+        }, 2000)
+      } else {
+        alert(result.error || 'Failed to add patient')
+      }
+    } catch (error) {
+      console.error('Add patient error:', error)
+      alert('An error occurred. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Check if a field has validation error
+  const hasFieldError = (field: string) => {
+    return incompleteSections.includes('incident') && (
+      (field === 'caseType' && !caseType) ||
+      (field === 'dateTimeOfCall' && !dateTimeOfCall) ||
+      (field === 'incidentLocation' && !incidentLocation) ||
+      (field === 'locationType' && !locationType)
+    )
   }
 
   const handleLogout = () => {
     router.push('/')
+  }
+
+  const handleHome = () => {
+    // Save current data is automatic via useEffect, just navigate
+    const params = new URLSearchParams({ fleetId })
+    router.push(`/dashboard?${params}`)
+  }
+
+  const handleAdminPanel = () => {
+    const user = getCurrentUser()
+    if (user && isAdmin(user.discordId)) {
+      router.push('/admin')
+    }
+  }
+
+  const handleTransferClick = () => {
+    setShowTransferModal(true)
+  }
+
+  const handleTransferComplete = (targetUser: any) => {
+    // Transfer all patients for this incident to the target user
+    const { transferAllPatients } = require('../utils/eprfHistoryService')
+    transferAllPatients(incidentId, targetUser.discordId, targetUser.callsign)
+    
+    setShowTransferModal(false)
+    setSuccessMessage({
+      title: 'ePRF Transferred',
+      message: `The ePRF has been transferred to ${targetUser.callsign}. You will be redirected to the dashboard.`
+    })
+    setShowSuccessModal(true)
+    setTimeout(() => {
+      handleHome()
+    }, 2000)
   }
 
   const navigateTo = (section: string) => {
@@ -85,6 +268,12 @@ export default function IncidentPage() {
     if (section === 'incident') router.push(`/incident?${params}`)
     else if (section === 'patient-info') router.push(`/patient-info?${params}`)
     else if (section === 'primary-survey') router.push(`/primary-survey?${params}`)
+    else if (section === 'vital-obs') router.push(`/vital-obs?${params}`)
+    else if (section === 'hx-complaint') router.push(`/hx-complaint?${params}`)
+    else if (section === 'past-medical-history') router.push(`/past-medical-history?${params}`)
+    else if (section === 'clinical-impression') router.push(`/clinical-impression?${params}`)
+    else if (section === 'disposition') router.push(`/disposition?${params}`)
+    else if (section === 'media') router.push(`/media?${params}`)
   }
 
   const setNow = (field: string) => {
@@ -132,23 +321,27 @@ export default function IncidentPage() {
   return (
     <div className="eprf-dashboard incident-page">
       <div className="eprf-nav">
-        <button className="nav-btn">Home</button>
+        <button className="nav-btn" onClick={handleHome}>Home</button>
         <button className="nav-btn">Tools</button>
-        <button className="nav-btn">Quick Nav</button>
+        <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
         <button className="nav-btn" onClick={handleLogout}>Manage Crew</button>
+        <div className="page-counter">
+          <span className="patient-letter">{patientLetter}</span>
+          <span className="page-indicator">1 of 1</span>
+        </div>
       </div>
 
       <div className="incident-layout">
         <aside className="sidebar">
           <button className={`sidebar-btn active${incompleteSections.includes('incident') ? ' incomplete' : ''}`}>Incident Information</button>
           <button className={`sidebar-btn${incompleteSections.includes('patient-info') ? ' incomplete' : ''}`} onClick={() => navigateTo('patient-info')}>Patient Information</button>
-          <button className="sidebar-btn" onClick={() => navigateTo('primary-survey')}>Primary Survey</button>
-          <button className="sidebar-btn">Vital Obs / Treat</button>
-          <button className="sidebar-btn">Hx Complaint</button>
-          <button className="sidebar-btn">Past Medical History</button>
-          <button className="sidebar-btn">Clinical Impression</button>
-          <button className="sidebar-btn">Disposition</button>
-          <button className="sidebar-btn">Media</button>
+          <button className={`sidebar-btn${incompleteSections.includes('primary-survey') ? ' incomplete' : ''}`} onClick={() => navigateTo('primary-survey')}>Primary Survey</button>
+          <button className={`sidebar-btn${incompleteSections.includes('vital-obs') ? ' incomplete' : ''}`} onClick={() => navigateTo('vital-obs')}>Vital Obs / Treat</button>
+          <button className={`sidebar-btn${incompleteSections.includes('hx-complaint') ? ' incomplete' : ''}`} onClick={() => navigateTo('hx-complaint')}>Hx Complaint</button>
+          <button className={`sidebar-btn${incompleteSections.includes('past-medical-history') ? ' incomplete' : ''}`} onClick={() => navigateTo('past-medical-history')}>Past Medical History</button>
+          <button className={`sidebar-btn${incompleteSections.includes('clinical-impression') ? ' incomplete' : ''}`} onClick={() => navigateTo('clinical-impression')}>Clinical Impression</button>
+          <button className={`sidebar-btn${incompleteSections.includes('disposition') ? ' incomplete' : ''}`} onClick={() => navigateTo('disposition')}>Disposition</button>
+          <button className="sidebar-btn" onClick={() => navigateTo('media')}>Media</button>
         </aside>
 
         <main className="incident-content">
@@ -157,13 +350,13 @@ export default function IncidentPage() {
             
             <div className="form-row">
               <div className="form-field master-incident">
-                <label className="field-label required">Master Incident Number</label>
-                <input type="text" value={incidentId} readOnly className="text-input readonly master" />
+                <label className="field-label">Master Incident Number</label>
+                <input type="text" value={incidentId} readOnly disabled className="text-input readonly master" />
               </div>
               
               <div className="form-field case-types">
-                <label className="field-label required">Case Type</label>
-                <div className="case-type-grid">
+                <label className={`field-label required ${hasFieldError('caseType') ? 'validation-error-label' : ''}`}>Case Type</label>
+                <div className={`case-type-grid ${hasFieldError('caseType') ? 'validation-error-radio' : ''}`}>
                   {CASE_TYPES.map(ct => (
                     <label key={ct.value} className={`case-type-option ${ct.disabled ? 'disabled' : ''}`}>
                       <input 
@@ -197,14 +390,14 @@ export default function IncidentPage() {
 
             <div className="form-row times-row">
               <div className="form-field">
-                <label className="field-label required">Date/Time of Call</label>
+                <label className={`field-label required ${hasFieldError('dateTimeOfCall') ? 'validation-error-label' : ''}`}>Date/Time of Call</label>
                 <div className="input-with-btn">
                   <input 
                     type="text" 
                     value={dateTimeOfCall} 
                     onChange={(e) => setDateTimeOfCall(e.target.value)}
                     onClick={() => openDateTimePicker('dateTimeOfCall')}
-                    className="text-input"
+                    className={`text-input ${hasFieldError('dateTimeOfCall') ? 'validation-error' : ''}`}
                     readOnly
                   />
                   <button className="now-btn" onClick={() => setNow('dateTimeOfCall')}>Now</button>
@@ -263,21 +456,21 @@ export default function IncidentPage() {
               
               <div className="form-field">
                 <label className="field-label">Destination</label>
-                <input type="text" value={destination} readOnly className="text-input readonly preset" />
+                <input type="text" value={destination} readOnly disabled className="text-input readonly preset" />
               </div>
             </div>
 
             <div className="form-row">
               <div className="form-field full-width">
-                <label className="field-label required">Incident Location</label>
-                <input type="text" value={incidentLocation} onChange={(e) => setIncidentLocation(e.target.value)} className="text-input" />
+                <label className={`field-label required ${hasFieldError('incidentLocation') ? 'validation-error-label' : ''}`}>Incident Location</label>
+                <input type="text" value={incidentLocation} onChange={(e) => setIncidentLocation(e.target.value)} className={`text-input ${hasFieldError('incidentLocation') ? 'validation-error' : ''}`} />
               </div>
             </div>
 
             <div className="form-row">
               <div className="form-field full-width">
-                <label className="field-label required">Location Type</label>
-                <div className="location-type-grid">
+                <label className={`field-label required ${hasFieldError('locationType') ? 'validation-error-label' : ''}`}>Location Type</label>
+                <div className={`location-type-grid ${hasFieldError('locationType') ? 'validation-error-radio' : ''}`}>
                   {LOCATION_TYPES.map(lt => (
                     <label key={lt.label} className={`location-type-option${lt.disabled ? ' disabled' : ''}`}>
                       <input 
@@ -312,15 +505,61 @@ export default function IncidentPage() {
         <div className="footer-left">
           <button className="footer-btn internet">Internet</button>
           <button className="footer-btn server">Server</button>
-          <button className="footer-btn green">Add Patient</button>
-          <button className="footer-btn green">Transfer ePRF</button>
+          <button className="footer-btn green" onClick={handleAddPatientClick}>Add Patient</button>
+          <button className="footer-btn green" onClick={handleTransferClick}>Transfer ePRF</button>
           <button className="footer-btn green" onClick={handleSubmit}>Submit ePRF</button>
         </div>
         <div className="footer-right">
-          <button className="footer-btn orange" onClick={() => router.push(`/dashboard?fleetId=${fleetId}`)}>{"< Previous"}</button>
+          <button className="footer-btn orange disabled" disabled>{"< Previous"}</button>
           <button className="footer-btn orange" onClick={() => navigateTo('patient-info')}>{"Next >"}</button>
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={showAddPatientModal}
+        onClose={() => setShowAddPatientModal(false)}
+        onConfirm={confirmAddPatient}
+        title="Add New Patient"
+        message={`Are you sure you want to add a new patient?\n\nThis will:\n• Save the current Patient ${patientLetter} data\n• Create a new patient record (Patient ${String.fromCharCode(patientLetter.charCodeAt(0) + 1)})\n• Clear the form for the new patient`}
+        confirmText="Yes, Add Patient"
+        cancelText="Cancel"
+        type="info"
+        isLoading={isSubmitting}
+      />
+
+      <ConfirmationModal
+        isOpen={showSubmitModal}
+        onClose={() => setShowSubmitModal(false)}
+        onConfirm={confirmSubmitEPRF}
+        title="Submit ePRF"
+        message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database\n• Download the PDF to your device`}
+        confirmText="Yes, Submit ePRF"
+        cancelText="Cancel"
+        type="success"
+        isLoading={isSubmitting}
+      />
+
+      <ValidationErrorModal
+        isOpen={showValidationErrorModal}
+        onClose={() => setShowValidationErrorModal(false)}
+        errors={validationErrors}
+        getSectionDisplayName={getSectionDisplayName}
+      />
+
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title={successMessage.title}
+        message={successMessage.message}
+      />
+
+      <TransferModal
+        isOpen={showTransferModal}
+        onClose={() => setShowTransferModal(false)}
+        onTransferComplete={handleTransferComplete}
+        incidentId={incidentId}
+        patientLetter={patientLetter}
+      />
 
       {showDateTimePicker && (
         <div className="modal-overlay" onClick={() => setShowDateTimePicker(false)}>

@@ -1,7 +1,13 @@
 "use client"
 
 import { useSearchParams, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { validateAllSections, getSectionDisplayName } from '../utils/validation'
+import { handleAddPatient as addPatientService, handleSubmitEPRF as submitEPRFService, getCurrentPatientLetter } from '../utils/eprfService'
+import ConfirmationModal, { ValidationErrorModal, SuccessModal } from '../components/ConfirmationModal'
+import TransferModal from '../components/TransferModal'
+import { getCurrentUser } from '../utils/userService'
+import { isAdmin } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
@@ -11,6 +17,19 @@ export default function PrimarySurveyPage() {
   const incidentId = searchParams?.get('id') || ''
   const fleetId = searchParams?.get('fleetId') || ''
   
+  const [incompleteSections, setIncompleteSections] = useState<string[]>([])
+  const [patientLetter, setPatientLetter] = useState('A')
+
+  // Modal states
+  const [showAddPatientModal, setShowAddPatientModal] = useState(false)
+  const [showSubmitModal, setShowSubmitModal] = useState(false)
+  const [showValidationErrorModal, setShowValidationErrorModal] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [showTransferModal, setShowTransferModal] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<{[section: string]: string[]}>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [successMessage, setSuccessMessage] = useState({ title: '', message: '' })
+
   const [clinicalStatus, setClinicalStatus] = useState('')
   const [responsiveness, setResponsiveness] = useState('')
   const [airway, setAirway] = useState('')
@@ -18,8 +37,156 @@ export default function PrimarySurveyPage() {
   const [circulation, setCirculation] = useState('')
   const [bloodLoss, setBloodLoss] = useState('')
 
+  // Load patient letter on mount
+  useEffect(() => {
+    if (incidentId) {
+      setPatientLetter(getCurrentPatientLetter(incidentId))
+    }
+  }, [incidentId])
+
+  // Load saved data on mount
+  useEffect(() => {
+    if (incidentId) {
+      const saved = localStorage.getItem(`primary_survey_${incidentId}`)
+      if (saved) {
+        try {
+          const p = JSON.parse(saved)
+          if (p.clinicalStatus) setClinicalStatus(p.clinicalStatus)
+          if (p.responsiveness) setResponsiveness(p.responsiveness)
+          if (p.airway) setAirway(p.airway)
+          if (p.breathing) setBreathing(p.breathing)
+          if (p.circulation) setCirculation(p.circulation)
+          if (p.bloodLoss) setBloodLoss(p.bloodLoss)
+        } catch (e) {
+          console.error('Failed to load saved primary survey:', e)
+        }
+      }
+    }
+  }, [incidentId])
+
+  // Save data whenever it changes
+  useEffect(() => {
+    if (incidentId) {
+      const data = { clinicalStatus, responsiveness, airway, breathing, circulation, bloodLoss }
+      localStorage.setItem(`primary_survey_${incidentId}`, JSON.stringify(data))
+    }
+  }, [incidentId, clinicalStatus, responsiveness, airway, breathing, circulation, bloodLoss])
+
+  const handleSubmitEPRF = () => {
+    const result = validateAllSections(incidentId)
+    setIncompleteSections(result.incompleteSections)
+    
+    if (result.isValid) {
+      setShowSubmitModal(true)
+    } else {
+      setValidationErrors(result.fieldErrors)
+      setShowValidationErrorModal(true)
+    }
+  }
+
+  const confirmSubmitEPRF = async () => {
+    setIsSubmitting(true)
+    try {
+      const result = await submitEPRFService(incidentId, fleetId)
+      
+      if (result.success) {
+        setShowSubmitModal(false)
+        setSuccessMessage({
+          title: 'ePRF Submitted Successfully!',
+          message: `The ePRF for Patient ${patientLetter} has been submitted.\n\nA PDF copy has been downloaded to your device and the record has been saved.`
+        })
+        setShowSuccessModal(true)
+      } else if (result.validationResult) {
+        setShowSubmitModal(false)
+        setValidationErrors(result.validationResult.fieldErrors)
+        setIncompleteSections(result.validationResult.incompleteSections)
+        setShowValidationErrorModal(true)
+      }
+    } catch (error) {
+      console.error('Submit error:', error)
+      alert('An error occurred while submitting. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleAddPatientClick = () => {
+    setShowAddPatientModal(true)
+  }
+
+  const confirmAddPatient = async () => {
+    setIsSubmitting(true)
+    try {
+      const result = await addPatientService(incidentId)
+      
+      if (result.success) {
+        setShowAddPatientModal(false)
+        setPatientLetter(result.newLetter)
+        setSuccessMessage({
+          title: 'Patient Added Successfully!',
+          message: `Patient ${patientLetter} has been saved.\n\nYou are now working on Patient ${result.newLetter}.\n\nThe form has been cleared for the new patient.`
+        })
+        setShowSuccessModal(true)
+        
+        setTimeout(() => {
+          const params = new URLSearchParams({ id: incidentId, fleetId })
+          router.push(`/patient-info?${params}`)
+        }, 2000)
+      } else {
+        alert(result.error || 'Failed to add patient')
+      }
+    } catch (error) {
+      console.error('Add patient error:', error)
+      alert('An error occurred. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const hasFieldError = (field: string) => {
+    return incompleteSections.includes('primary-survey') && (
+      (field === 'clinicalStatus' && !clinicalStatus) ||
+      (field === 'responsiveness' && !responsiveness) ||
+      (field === 'airway' && !airway) ||
+      (field === 'breathing' && !breathing) ||
+      (field === 'circulation' && !circulation) ||
+      (field === 'bloodLoss' && !bloodLoss)
+    )
+  }
+
   const handleLogout = () => {
     router.push('/')
+  }
+
+  const handleHome = () => {
+    const params = new URLSearchParams({ fleetId })
+    router.push(`/dashboard?${params}`)
+  }
+
+  const handleAdminPanel = () => {
+    const user = getCurrentUser()
+    if (user && isAdmin(user.discordId)) {
+      router.push('/admin')
+    }
+  }
+
+  const handleTransferClick = () => {
+    setShowTransferModal(true)
+  }
+
+  const handleTransferComplete = (targetUser: any) => {
+    const { transferAllPatients } = require('../utils/eprfHistoryService')
+    transferAllPatients(incidentId, targetUser.discordId, targetUser.callsign)
+    
+    setShowTransferModal(false)
+    setSuccessMessage({
+      title: 'ePRF Transferred',
+      message: `The ePRF has been transferred to ${targetUser.callsign}. You will be redirected to the dashboard.`
+    })
+    setShowSuccessModal(true)
+    setTimeout(() => {
+      handleHome()
+    }, 2000)
   }
 
   const navigateTo = (section: string) => {
@@ -28,6 +195,11 @@ export default function PrimarySurveyPage() {
     else if (section === 'patient-info') router.push(`/patient-info?${params}`)
     else if (section === 'primary-survey') router.push(`/primary-survey?${params}`)
     else if (section === 'vital-obs') router.push(`/vital-obs?${params}`)
+    else if (section === 'hx-complaint') router.push(`/hx-complaint?${params}`)
+    else if (section === 'past-medical-history') router.push(`/past-medical-history?${params}`)
+    else if (section === 'clinical-impression') router.push(`/clinical-impression?${params}`)
+    else if (section === 'disposition') router.push(`/disposition?${params}`)
+    else if (section === 'media') router.push(`/media?${params}`)
   }
 
   const handlePrevious = () => {
@@ -41,23 +213,27 @@ export default function PrimarySurveyPage() {
   return (
     <div className="eprf-dashboard incident-page">
       <div className="eprf-nav">
-        <button className="nav-btn">Home</button>
+        <button className="nav-btn" onClick={handleHome}>Home</button>
         <button className="nav-btn">Tools</button>
-        <button className="nav-btn">Quick Nav</button>
+        <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
         <button className="nav-btn" onClick={handleLogout}>Manage Crew</button>
+        <div className="page-counter">
+          <span className="patient-letter">{patientLetter}</span>
+          <span className="page-indicator">1 of 1</span>
+        </div>
       </div>
 
       <div className="incident-layout">
         <aside className="sidebar">
-          <button className="sidebar-btn" onClick={() => navigateTo('incident')}>Incident Information</button>
-          <button className="sidebar-btn" onClick={() => navigateTo('patient-info')}>Patient Information</button>
-          <button className="sidebar-btn active">Primary Survey</button>
-          <button className="sidebar-btn">Vital Obs / Treat</button>
-          <button className="sidebar-btn">Hx Complaint</button>
-          <button className="sidebar-btn">Past Medical History</button>
-          <button className="sidebar-btn">Clinical Impression</button>
-          <button className="sidebar-btn">Disposition</button>
-          <button className="sidebar-btn">Media</button>
+          <button className={`sidebar-btn${incompleteSections.includes('incident') ? ' incomplete' : ''}`} onClick={() => navigateTo('incident')}>Incident Information</button>
+          <button className={`sidebar-btn${incompleteSections.includes('patient-info') ? ' incomplete' : ''}`} onClick={() => navigateTo('patient-info')}>Patient Information</button>
+          <button className={`sidebar-btn active${incompleteSections.includes('primary-survey') ? ' incomplete' : ''}`}>Primary Survey</button>
+          <button className={`sidebar-btn${incompleteSections.includes('vital-obs') ? ' incomplete' : ''}`} onClick={() => navigateTo('vital-obs')}>Vital Obs / Treat</button>
+          <button className={`sidebar-btn${incompleteSections.includes('hx-complaint') ? ' incomplete' : ''}`} onClick={() => navigateTo('hx-complaint')}>Hx Complaint</button>
+          <button className={`sidebar-btn${incompleteSections.includes('past-medical-history') ? ' incomplete' : ''}`} onClick={() => navigateTo('past-medical-history')}>Past Medical History</button>
+          <button className={`sidebar-btn${incompleteSections.includes('clinical-impression') ? ' incomplete' : ''}`} onClick={() => navigateTo('clinical-impression')}>Clinical Impression</button>
+          <button className={`sidebar-btn${incompleteSections.includes('disposition') ? ' incomplete' : ''}`} onClick={() => navigateTo('disposition')}>Disposition</button>
+          <button className="sidebar-btn" onClick={() => navigateTo('media')}>Media</button>
         </aside>
 
         <main className="incident-content">
@@ -66,8 +242,8 @@ export default function PrimarySurveyPage() {
             
             <div className="form-row">
               <div className="form-field full-width">
-                <label className="field-label required">Clinical Status at Scene</label>
-                <div className="survey-options">
+                <label className={`field-label required ${hasFieldError('clinicalStatus') ? 'validation-error-label' : ''}`}>Clinical Status at Scene</label>
+                <div className={`survey-options ${hasFieldError('clinicalStatus') ? 'validation-error-radio' : ''}`}>
                   <label className="survey-option">
                     <input 
                       type="radio" 
@@ -124,8 +300,8 @@ export default function PrimarySurveyPage() {
 
             <div className="form-row">
               <div className="form-field full-width">
-                <label className="field-label required">Responsiveness</label>
-                <div className="survey-options">
+                <label className={`field-label required ${hasFieldError('responsiveness') ? 'validation-error-label' : ''}`}>Responsiveness</label>
+                <div className={`survey-options ${hasFieldError('responsiveness') ? 'validation-error-radio' : ''}`}>
                   <label className="survey-option">
                     <input 
                       type="radio" 
@@ -172,8 +348,8 @@ export default function PrimarySurveyPage() {
 
             <div className="form-row">
               <div className="form-field full-width">
-                <label className="field-label required">Airway</label>
-                <div className="survey-options">
+                <label className={`field-label required ${hasFieldError('airway') ? 'validation-error-label' : ''}`}>Airway</label>
+                <div className={`survey-options ${hasFieldError('airway') ? 'validation-error-radio' : ''}`}>
                   <label className="survey-option">
                     <input 
                       type="radio" 
@@ -210,8 +386,8 @@ export default function PrimarySurveyPage() {
 
             <div className="form-row">
               <div className="form-field full-width">
-                <label className="field-label required">Breathing</label>
-                <div className="survey-options">
+                <label className={`field-label required ${hasFieldError('breathing') ? 'validation-error-label' : ''}`}>Breathing</label>
+                <div className={`survey-options ${hasFieldError('breathing') ? 'validation-error-radio' : ''}`}>
                   <label className="survey-option">
                     <input 
                       type="radio" 
@@ -248,8 +424,8 @@ export default function PrimarySurveyPage() {
 
             <div className="form-row">
               <div className="form-field full-width">
-                <label className="field-label required">Circulation</label>
-                <div className="survey-options">
+                <label className={`field-label required ${hasFieldError('circulation') ? 'validation-error-label' : ''}`}>Circulation</label>
+                <div className={`survey-options ${hasFieldError('circulation') ? 'validation-error-radio' : ''}`}>
                   <label className="survey-option">
                     <input 
                       type="radio" 
@@ -286,8 +462,8 @@ export default function PrimarySurveyPage() {
 
             <div className="form-row">
               <div className="form-field full-width">
-                <label className="field-label required">Blood Loss</label>
-                <div className="survey-options">
+                <label className={`field-label required ${hasFieldError('bloodLoss') ? 'validation-error-label' : ''}`}>Blood Loss</label>
+                <div className={`survey-options ${hasFieldError('bloodLoss') ? 'validation-error-radio' : ''}`}>
                   <label className="survey-option">
                     <input 
                       type="radio" 
@@ -329,12 +505,61 @@ export default function PrimarySurveyPage() {
         <div className="footer-left">
           <button className="footer-btn internet">Internet</button>
           <button className="footer-btn server">Server</button>
+          <button className="footer-btn green" onClick={handleAddPatientClick}>Add Patient</button>
+          <button className="footer-btn green" onClick={handleTransferClick}>Transfer ePRF</button>
+          <button className="footer-btn green" onClick={handleSubmitEPRF}>Submit ePRF</button>
         </div>
         <div className="footer-right">
           <button className="footer-btn orange" onClick={handlePrevious}>{"< Previous"}</button>
           <button className="footer-btn orange" onClick={handleNext}>{"Next >"}</button>
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={showAddPatientModal}
+        onClose={() => setShowAddPatientModal(false)}
+        onConfirm={confirmAddPatient}
+        title="Add New Patient"
+        message={`Are you sure you want to add a new patient?\n\nThis will:\n• Save the current Patient ${patientLetter} data\n• Create a new patient record (Patient ${String.fromCharCode(patientLetter.charCodeAt(0) + 1)})\n• Clear the form for the new patient`}
+        confirmText="Yes, Add Patient"
+        cancelText="Cancel"
+        type="info"
+        isLoading={isSubmitting}
+      />
+
+      <ConfirmationModal
+        isOpen={showSubmitModal}
+        onClose={() => setShowSubmitModal(false)}
+        onConfirm={confirmSubmitEPRF}
+        title="Submit ePRF"
+        message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database\n• Download the PDF to your device`}
+        confirmText="Yes, Submit ePRF"
+        cancelText="Cancel"
+        type="success"
+        isLoading={isSubmitting}
+      />
+
+      <ValidationErrorModal
+        isOpen={showValidationErrorModal}
+        onClose={() => setShowValidationErrorModal(false)}
+        errors={validationErrors}
+        getSectionDisplayName={getSectionDisplayName}
+      />
+
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title={successMessage.title}
+        message={successMessage.message}
+      />
+
+      <TransferModal
+        isOpen={showTransferModal}
+        onClose={() => setShowTransferModal(false)}
+        onTransferComplete={handleTransferComplete}
+        incidentId={incidentId}
+        patientLetter={patientLetter}
+      />
     </div>
   )
 }

@@ -70,7 +70,7 @@ main {
 
 .card-subtext {
   font-size: 13px;
-  color: #cfcfd6;
+  color: #4a5568;
   margin-bottom: 18px;
 }
 
@@ -217,7 +217,9 @@ main {
 .form-input.readonly {
   background: #e9ecef;
   cursor: not-allowed;
-  color: #6c757d;
+  color: #4a5568;
+  pointer-events: none;
+  user-select: none;
 }
 
 .form-hint {
@@ -272,6 +274,28 @@ main {
   padding: 8px;
   background: linear-gradient(to bottom, #7a9dc4 0%, #6a8db4 100%);
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  position: relative;
+}
+
+.page-counter {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  text-align: center;
+  color: white;
+}
+
+.patient-letter {
+  font-size: 20px;
+  font-weight: bold;
+  color: #ff4444;
+  display: block;
+}
+
+.page-indicator {
+  font-size: 13px;
+  color: white;
 }
 
 .nav-btn {
@@ -515,6 +539,9 @@ main {
 .incident-part.readonly {
   background: #e9ecef;
   color: #495057;
+  pointer-events: none;
+  cursor: not-allowed;
+  user-select: none;
 }
 
 .incident-part.date {
@@ -619,6 +646,24 @@ main {
   border-left: 4px solid #ff6b6b;
 }
 
+/* Validation error styles for form fields */
+.validation-error {
+  border-color: #ff4444 !important;
+  background-color: rgba(255, 68, 68, 0.15) !important;
+  box-shadow: 0 0 0 2px rgba(255, 68, 68, 0.3) !important;
+}
+
+.validation-error-radio {
+  outline: 2px solid #ff4444 !important;
+  outline-offset: 2px;
+  border-radius: 4px;
+  background-color: rgba(255, 68, 68, 0.15) !important;
+}
+
+.validation-error-label {
+  color: #cc0000 !important;
+}
+
 .incident-content {
   flex: 1;
   overflow-y: auto;
@@ -686,6 +731,10 @@ main {
   color: #d9534f;
 }
 
+.field-label.error {
+  color: #d9534f;
+}
+
 .text-input {
   padding: 6px 10px;
   font-size: 14px;
@@ -695,15 +744,26 @@ main {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.text-input.input-error {
+  border-color: #d9534f;
+  background-color: #fff5f5;
+}
+
 .text-input.readonly {
   background: #e9ecef;
   color: #495057;
+  pointer-events: none;
+  cursor: not-allowed;
+  user-select: none;
 }
 
 .text-input.preset {
   background: #c0d0e0;
   color: #556575;
   opacity: 0.9;
+  pointer-events: none;
+  cursor: not-allowed;
+  user-select: none;
 }
 
 .text-input.master {
@@ -750,7 +810,7 @@ main {
 .case-type-option.disabled {
   opacity: 0.35;
   cursor: not-allowed;
-  color: #9aaaba;
+  color: #4a5568;
   background-color: #d8dfe5;
   padding: 4px 8px;
   border-radius: 4px;
@@ -776,7 +836,7 @@ main {
 
 .radio-desc {
   font-size: 12px;
-  color: #6a8aaa;
+  color: #4a5568;
   font-style: italic;
   margin-top: 2px;
 }
@@ -800,7 +860,7 @@ main {
 .location-type-option.disabled {
   opacity: 0.35;
   cursor: not-allowed;
-  color: #9aaaba;
+  color: #4a5568;
   background-color: #d8dfe5;
   padding: 4px 8px;
   border-radius: 4px;
@@ -1070,10 +1130,22 @@ main {
   background: #b8c8d8 !important;
   color: #556575;
   opacity: 0.85;
+  pointer-events: none;
+  cursor: not-allowed;
+  user-select: none;
 }
 
-.grayed-disabled input[type="radio"] {
+.grayed-disabled input,
+.grayed-disabled select,
+.grayed-disabled textarea {
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.grayed-disabled input[type="radio"],
+.grayed-disabled input[type="checkbox"] {
   opacity: 0.6;
+  pointer-events: none;
 }
 
 .date-only-picker .picker-controls {
@@ -2871,4 +2943,189 @@ main {
 .tourniquet-footer-btn.ok {
   background: linear-gradient(to bottom, #5a8abf 0%, #4a7aaf 100%);
   color: white;
+}
+
+/* Vitals Action Buttons */
+.vitals-action-buttons {
+  display: flex;
+  gap: 20px;
+  margin-top: 40px;
+  padding: 30px;
+  justify-content: center;
+}
+
+.vitals-action-btn {
+  padding: 25px 50px;
+  font-size: 18px;
+  font-weight: bold;
+  border: 2px solid #2a6a3a;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  min-width: 180px;
+}
+
+.vitals-action-btn.blue {
+  background: linear-gradient(to bottom, #4a9f4a 0%, #3a8a3a 100%);
+  color: white;
+  border-color: #2a6a2a;
+}
+
+.vitals-action-btn.blue:hover {
+  background: linear-gradient(to bottom, #5aaf5a 0%, #4a9a4a 100%);
+}
+
+/* BGL Modal Styling */
+.vital-modal-section-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #2c5282;
+  margin-bottom: 15px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #a8c5e0;
+}
+
+.vital-modal-field-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 15px;
+}
+
+.vital-modal-field-row .vital-modal-label {
+  min-width: 140px;
+  font-weight: 600;
+  color: #333;
+}
+
+.vital-modal-input.styled-input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 2px solid #a8c5e0;
+  border-radius: 6px;
+  font-size: 14px;
+  background: #fff;
+  color: #333;
+}
+
+.vital-modal-input.styled-input:focus {
+  border-color: #4a90e2;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+}
+
+.vital-modal-input.styled-input.clickable {
+  cursor: pointer;
+  background: #f8fafc;
+}
+
+.vital-modal-input.styled-input.clickable:hover {
+  background: #e6f2ff;
+}
+
+/* Pupils Modal */
+.pupils-modal {
+  min-width: 700px;
+}
+
+.pupil-size-option:hover {
+  background-color: #f0f7ff !important;
+}
+
+/* Global text color improvements */
+input::placeholder,
+textarea::placeholder,
+select::placeholder {
+  color: #666 !important;
+  opacity: 1;
+}
+
+.text-input,
+.vital-modal-input,
+.form-input {
+  color: #333;
+}
+
+.text-input::placeholder,
+.vital-modal-input::placeholder,
+.form-input::placeholder {
+  color: #666;
+}
+
+/* Numeric Input with Arrows */
+.numeric-input-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+}
+
+.numeric-input-wrapper input[type="number"] {
+  padding-right: 35px;
+  -moz-appearance: textfield;
+  width: 100%;
+}
+
+.numeric-input-wrapper input[type="number"]::-webkit-inner-spin-button,
+.numeric-input-wrapper input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.numeric-arrows {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  z-index: 1;
+}
+
+.numeric-arrow-btn {
+  width: 26px;
+  height: 16px;
+  background: linear-gradient(to bottom, #e8e8e8 0%, #d0d0d0 100%);
+  border: 1px solid #999;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  color: #333;
+  padding: 0;
+  line-height: 1;
+  transition: all 0.1s ease;
+  user-select: none;
+}
+
+.numeric-arrow-btn:hover {
+  background: linear-gradient(to bottom, #f0f0f0 0%, #e0e0e0 100%);
+}
+
+.numeric-arrow-btn:active {
+  background: linear-gradient(to bottom, #c0c0c0 0%, #a8a8a8 100%);
+}
+
+.numeric-arrow-btn.up {
+  border-radius: 3px 3px 0 0;
+}
+
+.numeric-arrow-btn.down {
+  border-radius: 0 0 3px 3px;
+}
+
+/* Ensure arrows work in special input containers */
+.cpr-input-group .numeric-input-wrapper,
+.iv-section .numeric-input-wrapper,
+.io-section .numeric-input-wrapper {
+  width: auto;
+}
+
+.cpr-input-group .numeric-input-wrapper input,
+.iv-section .numeric-input-wrapper input,
+.io-section .numeric-input-wrapper input {
+  width: 100%;
 }

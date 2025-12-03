@@ -1,7 +1,16 @@
 import fs from 'fs';
 import path from 'path';
 
+// Admin-only debug endpoint
+const ADMIN_DISCORD_ID = '695765253612953651';
+
 export default function handler(req, res) {
+  // Verify admin access via query param (basic protection)
+  const adminId = req.query.adminId;
+  if (adminId !== ADMIN_DISCORD_ID) {
+    return res.status(403).json({ error: 'Unauthorized - Admin access required' });
+  }
+
   // Read package.json at runtime to avoid bundler/module resolution issues during build
   let pkg = { name: null, version: null };
   try {
@@ -18,10 +27,8 @@ export default function handler(req, res) {
     version: pkg.version,
     node: process.version,
     platform: process.platform,
+    // Don't expose sensitive env info
     env: {
-      client_id_set: Boolean(process.env.CLIENT_ID),
-      client_secret_set: Boolean(process.env.CLIENT_SECRET),
-      vercel_url: process.env.VERCEL_URL || null,
       vercel_env: process.env.VERCEL_ENV || null
     }
   });

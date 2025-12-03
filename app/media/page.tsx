@@ -1,0 +1,612 @@
+"use client"
+
+import { useSearchParams, useRouter } from 'next/navigation'
+import { useState, useEffect, useRef } from 'react'
+import { validateAllSections, getSectionDisplayName } from '../utils/validation'
+import { handleAddPatient as addPatientService, handleSubmitEPRF as submitEPRFService, getCurrentPatientLetter } from '../utils/eprfService'
+import ConfirmationModal, { ValidationErrorModal, SuccessModal } from '../components/ConfirmationModal'
+import TransferModal from '../components/TransferModal'
+import { getCurrentUser } from '../utils/userService'
+import { isAdmin } from '../utils/apiClient'
+
+export const runtime = 'edge'
+
+interface MediaItem {
+  id: string
+  type: 'image' | 'audio' | 'video'
+  name: string
+  dataUrl: string
+  timestamp: string
+}
+
+export default function MediaPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const incidentId = searchParams?.get('id') || ''
+  const fleetId = searchParams?.get('fleetId') || ''
+
+  const [incompleteSections, setIncompleteSections] = useState<string[]>([])
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
+  const [selectedMedia, setSelectedMedia] = useState<string | null>(null)
+  const [isRecording, setIsRecording] = useState(false)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [patientLetter, setPatientLetter] = useState('A')
+
+  // Modal states
+  const [showAddPatientModal, setShowAddPatientModal] = useState(false)
+  const [showSubmitModal, setShowSubmitModal] = useState(false)
+  const [showTransferModal, setShowTransferModal] = useState(false)
+  const [showValidationErrorModal, setShowValidationErrorModal] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<{[section: string]: string[]}>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [successMessage, setSuccessMessage] = useState({ title: '', message: '' })
+
+  // Load patient letter on mount
+  useEffect(() => {
+    if (incidentId) {
+      setPatientLetter(getCurrentPatientLetter(incidentId))
+    }
+  }, [incidentId])
+
+  // Load saved data on mount
+  useEffect(() => {
+    if (incidentId) {
+      const saved = localStorage.getItem(`media_${incidentId}`)
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          setMediaItems(parsed)
+        } catch (e) {
+          console.error('Failed to parse saved data:', e)
+        }
+      }
+    }
+  }, [incidentId])
+
+  // Save data whenever it changes
+  useEffect(() => {
+    if (incidentId) {
+      localStorage.setItem(`media_${incidentId}`, JSON.stringify(mediaItems))
+    }
+  }, [mediaItems, incidentId])
+
+  const handleLogout = () => {
+    router.push('/')
+  }
+
+  const handleHome = () => {
+    const params = new URLSearchParams({ fleetId })
+    router.push(`/dashboard?${params}`)
+  }
+
+  const handleAdminPanel = () => {
+    const user = getCurrentUser()
+    if (user && isAdmin(user.discordId)) {
+      router.push('/admin')
+    }
+  }
+
+  const handleTransferClick = () => {
+    setShowTransferModal(true)
+  }
+
+  const handleTransferComplete = (targetUser: any) => {
+    const { transferAllPatients } = require('../utils/eprfHistoryService')
+    transferAllPatients(incidentId, targetUser.discordId, targetUser.callsign)
+    
+    setShowTransferModal(false)
+    setSuccessMessage({
+      title: 'ePRF Transferred',
+      message: `The ePRF has been transferred to ${targetUser.callsign}. You will be redirected to the dashboard.`
+    })
+    setShowSuccessModal(true)
+    setTimeout(() => {
+      handleHome()
+    }, 2000)
+  }
+
+  const navigateTo = (section: string) => {
+    const params = new URLSearchParams({ id: incidentId, fleetId })
+    if (section === 'incident') router.push(`/incident?${params}`)
+    else if (section === 'patient-info') router.push(`/patient-info?${params}`)
+    else if (section === 'primary-survey') router.push(`/primary-survey?${params}`)
+    else if (section === 'vital-obs') router.push(`/vital-obs?${params}`)
+    else if (section === 'hx-complaint') router.push(`/hx-complaint?${params}`)
+    else if (section === 'past-medical-history') router.push(`/past-medical-history?${params}`)
+    else if (section === 'clinical-impression') router.push(`/clinical-impression?${params}`)
+    else if (section === 'disposition') router.push(`/disposition?${params}`)
+    else if (section === 'media') router.push(`/media?${params}`)
+  }
+
+  const handlePrevious = () => {
+    navigateTo('disposition')
+  }
+
+  const handleNext = () => {
+    // Do nothing - this is the last page
+  }
+
+  const handleSubmitEPRF = () => {
+    const result = validateAllSections(incidentId)
+    setIncompleteSections(result.incompleteSections)
+    
+    if (result.isValid) {
+      setShowSubmitModal(true)
+    } else {
+      setValidationErrors(result.fieldErrors)
+      setShowValidationErrorModal(true)
+    }
+  }
+
+  const confirmSubmitEPRF = async () => {
+    setIsSubmitting(true)
+    try {
+      const result = await submitEPRFService(incidentId, fleetId)
+      
+      if (result.success) {
+        setShowSubmitModal(false)
+        setSuccessMessage({
+          title: 'ePRF Submitted Successfully!',
+          message: `The ePRF for Patient ${patientLetter} has been submitted.\n\nA PDF copy has been downloaded to your device and the record has been saved.`
+        })
+        setShowSuccessModal(true)
+      } else if (result.validationResult) {
+        setShowSubmitModal(false)
+        setValidationErrors(result.validationResult.fieldErrors)
+        setIncompleteSections(result.validationResult.incompleteSections)
+        setShowValidationErrorModal(true)
+      }
+    } catch (error) {
+      console.error('Submit error:', error)
+      alert('An error occurred while submitting. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleAddPatientClick = () => {
+    setShowAddPatientModal(true)
+  }
+
+  const confirmAddPatient = async () => {
+    setIsSubmitting(true)
+    try {
+      const result = await addPatientService(incidentId)
+      
+      if (result.success) {
+        setShowAddPatientModal(false)
+        setPatientLetter(result.newLetter)
+        setSuccessMessage({
+          title: 'Patient Added Successfully!',
+          message: `Patient ${patientLetter} has been saved.\n\nYou are now working on Patient ${result.newLetter}.\n\nThe form has been cleared for the new patient.`
+        })
+        setShowSuccessModal(true)
+        
+        setTimeout(() => {
+          const params = new URLSearchParams({ id: incidentId, fleetId })
+          router.push(`/patient-info?${params}`)
+        }, 2000)
+      } else {
+        alert(result.error || 'Failed to add patient')
+      }
+    } catch (error) {
+      console.error('Add patient error:', error)
+      alert('An error occurred. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleUploadMedia = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    Array.from(files).forEach(file => {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string
+        let type: 'image' | 'audio' | 'video' = 'image'
+        if (file.type.startsWith('audio/')) type = 'audio'
+        else if (file.type.startsWith('video/')) type = 'video'
+
+        const newMedia: MediaItem = {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          type,
+          name: file.name,
+          dataUrl,
+          timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+        }
+        setMediaItems(prev => [...prev, newMedia])
+      }
+      reader.readAsDataURL(file)
+    })
+
+    // Reset input
+    e.target.value = ''
+  }
+
+  const handleRecordAudio = async () => {
+    if (isRecording) {
+      // Stop recording
+      mediaRecorderRef.current?.stop()
+      setIsRecording(false)
+    } else {
+      // Start recording
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        const mediaRecorder = new MediaRecorder(stream)
+        mediaRecorderRef.current = mediaRecorder
+        audioChunksRef.current = []
+
+        mediaRecorder.ondataavailable = (event) => {
+          audioChunksRef.current.push(event.data)
+        }
+
+        mediaRecorder.onstop = () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+          const reader = new FileReader()
+          reader.onload = (event) => {
+            const dataUrl = event.target?.result as string
+            const newMedia: MediaItem = {
+              id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+              type: 'audio',
+              name: `Audio Memo ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`,
+              dataUrl,
+              timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+            }
+            setMediaItems(prev => [...prev, newMedia])
+          }
+          reader.readAsDataURL(audioBlob)
+
+          // Stop all tracks
+          stream.getTracks().forEach(track => track.stop())
+        }
+
+        mediaRecorder.start()
+        setIsRecording(true)
+      } catch (err) {
+        console.error('Failed to start recording:', err)
+        alert('Could not access microphone. Please check permissions.')
+      }
+    }
+  }
+
+  const handleDiscard = () => {
+    if (selectedMedia) {
+      setMediaItems(prev => prev.filter(item => item.id !== selectedMedia))
+      setSelectedMedia(null)
+    }
+  }
+
+  const handleSelectMedia = (id: string) => {
+    setSelectedMedia(selectedMedia === id ? null : id)
+  }
+
+  const getSelectedMediaItem = () => {
+    return mediaItems.find(item => item.id === selectedMedia)
+  }
+
+  return (
+    <div className="eprf-dashboard incident-page">
+      <style jsx>{`
+        .media-section {
+          padding: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 15px;
+        }
+
+        .media-toolbar {
+          display: flex;
+          gap: 0;
+          background: #d0d4d8;
+          width: fit-content;
+          border: 1px solid #999;
+        }
+
+        .toolbar-btn {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 5px;
+          padding: 15px 25px;
+          background: #e8eaec;
+          border: none;
+          border-right: 1px solid #999;
+          cursor: pointer;
+          min-width: 100px;
+          font-size: 13px;
+          color: #333;
+        }
+
+        .toolbar-btn:last-child {
+          border-right: none;
+        }
+
+        .toolbar-btn:hover {
+          background: #d8dade;
+        }
+
+        .toolbar-btn.recording {
+          background: #ffcccc;
+        }
+
+        .toolbar-icon {
+          font-size: 24px;
+        }
+
+        .media-container {
+          display: flex;
+          gap: 15px;
+          flex: 1;
+        }
+
+        .media-list {
+          width: 320px;
+          min-height: 400px;
+          background: #a8b8c8;
+          border: 2px solid #7a9cc0;
+          border-radius: 3px;
+          padding: 10px;
+          overflow-y: auto;
+        }
+
+        .media-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px;
+          background: #d0dae4;
+          border: 1px solid #7a9cc0;
+          border-radius: 3px;
+          margin-bottom: 8px;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+
+        .media-item:hover {
+          background: #c0cad4;
+        }
+
+        .media-item.selected {
+          background: #5080b0;
+          color: white;
+        }
+
+        .media-item-icon {
+          font-size: 20px;
+        }
+
+        .media-item-info {
+          flex: 1;
+          overflow: hidden;
+        }
+
+        .media-item-name {
+          font-size: 13px;
+          font-weight: 500;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .media-item-time {
+          font-size: 11px;
+          opacity: 0.8;
+        }
+
+        .media-preview {
+          flex: 1;
+          min-height: 400px;
+          background: #a8b8c8;
+          border: 2px solid #7a9cc0;
+          border-radius: 3px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }
+
+        .preview-content {
+          max-width: 100%;
+          max-height: 100%;
+        }
+
+        .preview-content img {
+          max-width: 100%;
+          max-height: 350px;
+          object-fit: contain;
+        }
+
+        .preview-content audio {
+          width: 100%;
+          min-width: 300px;
+        }
+
+        .preview-content video {
+          max-width: 100%;
+          max-height: 350px;
+        }
+
+        .no-selection {
+          color: #666;
+          font-size: 14px;
+        }
+
+        .hidden-input {
+          display: none;
+        }
+      `}</style>
+
+      <div className="eprf-nav">
+        <button className="nav-btn" onClick={handleHome}>Home</button>
+        <button className="nav-btn">Tools</button>
+        <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
+        <button className="nav-btn" onClick={handleLogout}>Manage Crew</button>
+        <div className="page-counter">
+          <span className="patient-letter">{patientLetter}</span>
+          <span className="page-indicator">1 of 1</span>
+        </div>
+      </div>
+
+      <div className="incident-layout">
+        <aside className="sidebar">
+          <button className={`sidebar-btn${incompleteSections.includes('incident') ? ' incomplete' : ''}`} onClick={() => navigateTo('incident')}>Incident Information</button>
+          <button className={`sidebar-btn${incompleteSections.includes('patient-info') ? ' incomplete' : ''}`} onClick={() => navigateTo('patient-info')}>Patient Information</button>
+          <button className={`sidebar-btn${incompleteSections.includes('primary-survey') ? ' incomplete' : ''}`} onClick={() => navigateTo('primary-survey')}>Primary Survey</button>
+          <button className={`sidebar-btn${incompleteSections.includes('vital-obs') ? ' incomplete' : ''}`} onClick={() => navigateTo('vital-obs')}>Vital Obs / Treat</button>
+          <button className={`sidebar-btn${incompleteSections.includes('hx-complaint') ? ' incomplete' : ''}`} onClick={() => navigateTo('hx-complaint')}>Hx Complaint</button>
+          <button className={`sidebar-btn${incompleteSections.includes('past-medical-history') ? ' incomplete' : ''}`} onClick={() => navigateTo('past-medical-history')}>Past Medical History</button>
+          <button className={`sidebar-btn${incompleteSections.includes('clinical-impression') ? ' incomplete' : ''}`} onClick={() => navigateTo('clinical-impression')}>Clinical Impression</button>
+          <button className={`sidebar-btn${incompleteSections.includes('disposition') ? ' incomplete' : ''}`} onClick={() => navigateTo('disposition')}>Disposition</button>
+          <button className="sidebar-btn active">Media</button>
+        </aside>
+
+        <main className="incident-content">
+          <section className="incident-section media-section">
+            {/* Toolbar */}
+            <div className="media-toolbar">
+              <button className="toolbar-btn" onClick={handleUploadMedia}>
+                <span className="toolbar-icon">📁</span>
+                Upload Media
+              </button>
+              <button 
+                className={`toolbar-btn ${isRecording ? 'recording' : ''}`} 
+                onClick={handleRecordAudio}
+              >
+                <span className="toolbar-icon">🎤</span>
+                {isRecording ? 'Stop Recording' : 'Record Audio'}
+              </button>
+              <button 
+                className="toolbar-btn" 
+                onClick={handleDiscard}
+                disabled={!selectedMedia}
+              >
+                <span className="toolbar-icon">🗑️</span>
+                Discard
+              </button>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden-input"
+              accept="image/*,audio/*,video/*"
+              multiple
+              onChange={handleFileChange}
+            />
+
+            {/* Media container */}
+            <div className="media-container">
+              {/* Media list */}
+              <div className="media-list">
+                {mediaItems.map(item => (
+                  <div
+                    key={item.id}
+                    className={`media-item ${selectedMedia === item.id ? 'selected' : ''}`}
+                    onClick={() => handleSelectMedia(item.id)}
+                  >
+                    <span className="media-item-icon">
+                      {item.type === 'image' ? '🖼️' : item.type === 'audio' ? '🎵' : '🎬'}
+                    </span>
+                    <div className="media-item-info">
+                      <div className="media-item-name">{item.name}</div>
+                      <div className="media-item-time">{item.timestamp}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Preview area */}
+              <div className="media-preview">
+                {selectedMedia && getSelectedMediaItem() ? (
+                  <div className="preview-content">
+                    {getSelectedMediaItem()?.type === 'image' && (
+                      <img src={getSelectedMediaItem()?.dataUrl} alt={getSelectedMediaItem()?.name} />
+                    )}
+                    {getSelectedMediaItem()?.type === 'audio' && (
+                      <audio controls src={getSelectedMediaItem()?.dataUrl} />
+                    )}
+                    {getSelectedMediaItem()?.type === 'video' && (
+                      <video controls src={getSelectedMediaItem()?.dataUrl} />
+                    )}
+                  </div>
+                ) : (
+                  <span className="no-selection">Select media to preview</span>
+                )}
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <div className="eprf-footer incident-footer">
+        <div className="footer-left">
+          <button className="footer-btn internet">Internet</button>
+          <button className="footer-btn server">Server</button>
+          <button className="footer-btn discovery" onClick={handleAddPatientClick}>Add Patient</button>
+          <button className="footer-btn green" onClick={handleTransferClick}>Transfer ePRF</button>
+          <button className="footer-btn green" onClick={handleSubmitEPRF}>Submit ePRF</button>
+        </div>
+        <div className="footer-right">
+          <button className="footer-btn orange" onClick={handlePrevious}>{"< Previous"}</button>
+          <button className="footer-btn orange" onClick={handleNext}>{"Next >"}</button>
+        </div>
+      </div>
+
+      <ConfirmationModal
+        isOpen={showAddPatientModal}
+        onClose={() => setShowAddPatientModal(false)}
+        onConfirm={confirmAddPatient}
+        title="Add New Patient"
+        message={`Are you sure you want to add a new patient?\n\nThis will:\n• Save the current Patient ${patientLetter} data\n• Create a new patient record (Patient ${String.fromCharCode(patientLetter.charCodeAt(0) + 1)})\n• Clear the form for the new patient`}
+        confirmText="Yes, Add Patient"
+        cancelText="Cancel"
+        type="info"
+        isLoading={isSubmitting}
+      />
+
+      <ConfirmationModal
+        isOpen={showSubmitModal}
+        onClose={() => setShowSubmitModal(false)}
+        onConfirm={confirmSubmitEPRF}
+        title="Submit ePRF"
+        message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database\n• Download the PDF to your device`}
+        confirmText="Yes, Submit ePRF"
+        cancelText="Cancel"
+        type="success"
+        isLoading={isSubmitting}
+      />
+
+      <ValidationErrorModal
+        isOpen={showValidationErrorModal}
+        onClose={() => setShowValidationErrorModal(false)}
+        errors={validationErrors}
+        getSectionDisplayName={getSectionDisplayName}
+      />
+
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title={successMessage.title}
+        message={successMessage.message}
+      />
+
+      <TransferModal
+        isOpen={showTransferModal}
+        onClose={() => setShowTransferModal(false)}
+        onTransferComplete={handleTransferComplete}
+        incidentId={incidentId}
+        patientLetter={patientLetter}
+      />
+    </div>
+  )
+}

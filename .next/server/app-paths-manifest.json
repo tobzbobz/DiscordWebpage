@@ -1,0 +1,23 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/page": "app/page.js",
+  "/api/eprf/data/route": "app/api/eprf/data/route.js",
+  "/api/db/init/route": "app/api/db/init/route.js",
+  "/api/users/route": "app/api/users/route.js",
+  "/api/admin/records/route": "app/api/admin/records/route.js",
+  "/admin/page": "app/admin/page.js",
+  "/api/eprf/records/route": "app/api/eprf/records/route.js",
+  "/clinical-impression/page": "app/clinical-impression/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/logon/page": "app/logon/page.js",
+  "/hx-complaint/page": "app/hx-complaint/page.js",
+  "/media/page": "app/media/page.js",
+  "/disposition/page": "app/disposition/page.js",
+  "/incident/page": "app/incident/page.js",
+  "/patient-info/page": "app/patient-info/page.js",
+  "/medications/page": "app/medications/page.js",
+  "/past-medical-history/page": "app/past-medical-history/page.js",
+  "/primary-survey/page": "app/primary-survey/page.js",
+  "/interventions/page": "app/interventions/page.js",
+  "/vital-obs/page": "app/vital-obs/page.js"
+}

@@ -1,9 +1,81 @@
 "use client"
 
 import { useSearchParams, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect, useRef, KeyboardEvent } from 'react'
+import { validateAllSections, getSectionDisplayName } from '../utils/validation'
+import { handleAddPatient as addPatientService, handleSubmitEPRF as submitEPRFService, getCurrentPatientLetter } from '../utils/eprfService'
+import ConfirmationModal, { ValidationErrorModal, SuccessModal } from '../components/ConfirmationModal'
+import TransferModal from '../components/TransferModal'
+import { getCurrentUser } from '../utils/userService'
+import { isAdmin } from '../utils/apiClient'
 
 export const runtime = 'edge'
+
+// NumericInput component with +/- arrows and keyboard support
+interface NumericInputProps {
+  value: string
+  onChange: (value: string) => void
+  className?: string
+  step?: number
+  min?: number
+  max?: number
+  placeholder?: string
+  style?: React.CSSProperties
+  disabled?: boolean
+}
+
+function NumericInput({ value, onChange, className = '', step = 1, min, max, placeholder, style, disabled }: NumericInputProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  
+  const increment = () => {
+    if (disabled) return
+    const currentVal = parseFloat(value) || 0
+    const newVal = max !== undefined ? Math.min(max, currentVal + step) : currentVal + step
+    onChange(step < 1 ? newVal.toFixed(1) : newVal.toString())
+  }
+  
+  const decrement = () => {
+    if (disabled) return
+    const currentVal = parseFloat(value) || 0
+    const newVal = min !== undefined ? Math.max(min, currentVal - step) : currentVal - step
+    onChange(step < 1 ? newVal.toFixed(1) : newVal.toString())
+  }
+  
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (disabled) return
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      increment()
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      decrement()
+    }
+  }
+  
+  return (
+    <div className="numeric-input-wrapper" style={style}>
+      <input
+        ref={inputRef}
+        type="number"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={handleKeyDown}
+        className={className}
+        placeholder={placeholder}
+        disabled={disabled}
+        step={step}
+        min={min}
+        max={max}
+      />
+      {!disabled && (
+        <div className="numeric-arrows">
+          <button type="button" className="numeric-arrow-btn up" onClick={increment} tabIndex={-1}>▲</button>
+          <button type="button" className="numeric-arrow-btn down" onClick={decrement} tabIndex={-1}>▼</button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function InterventionsPage() {
   const searchParams = useSearchParams()
@@ -11,10 +83,107 @@ export default function InterventionsPage() {
   const incidentId = searchParams?.get('id') || ''
   const fleetId = searchParams?.get('fleetId') || ''
   
-  // Saved interventions array
-  const [savedInterventions, setSavedInterventions] = useState<any[]>([])
+  const [incompleteSections, setIncompleteSections] = useState<string[]>([])
+  const [patientLetter, setPatientLetter] = useState('A')
+
+  // Modal states for Add Patient and Submit ePRF
+  const [showAddPatientModal, setShowAddPatientModal] = useState(false)
+  const [showSubmitModal, setShowSubmitModal] = useState(false)
+  const [showTransferModal, setShowTransferModal] = useState(false)
+  const [showValidationErrorModal, setShowValidationErrorModal] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [eprfValidationErrors, setEprfValidationErrors] = useState<{[section: string]: string[]}>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [successMessage, setSuccessMessage] = useState({ title: '', message: '' })
+
+  // Load patient letter on mount
+  useEffect(() => {
+    if (incidentId) {
+      setPatientLetter(getCurrentPatientLetter(incidentId))
+    }
+  }, [incidentId])
+  
+  // Saved interventions array - initialize from localStorage
+  const [savedInterventions, setSavedInterventions] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`interventions_${incidentId}`)
+      return saved ? JSON.parse(saved) : []
+    }
+    return []
+  })
+  
+  // Persist interventions to localStorage whenever they change
+  useEffect(() => {
+    if (incidentId) {
+      localStorage.setItem(`interventions_${incidentId}`, JSON.stringify(savedInterventions))
+    }
+  }, [savedInterventions, incidentId])
+  
+  // Draft state for persistence
+  const [intDraft, setIntDraft] = useState<any>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`interventions_draft_${incidentId}`)
+      return saved ? JSON.parse(saved) : null
+    }
+    return null
+  })
+  
+  // Load draft on mount if exists
+  useEffect(() => {
+    if (intDraft && incidentId) {
+      setTime(intDraft.time || '')
+      setPerformedBy(intDraft.performedBy || '')
+      setAirway(intDraft.airway || '')
+      setVentilation(intDraft.ventilation || '')
+      setPeep(intDraft.peep || '')
+      setCpap(intDraft.cpap || '')
+      setRsi(intDraft.rsi || '')
+      setCpr(intDraft.cpr || '')
+      setCprCompressions(intDraft.cprCompressions || '')
+      setCprVentilations(intDraft.cprVentilations || '')
+      setCprContinuous(intDraft.cprContinuous || false)
+      setCprDiscontinued(intDraft.cprDiscontinued || '')
+      setDefibrillation(intDraft.defibrillation || '')
+      setDefibrillationJoules(intDraft.defibrillationJoules || '')
+      setCardioversion(intDraft.cardioversion || '')
+      setPacing(intDraft.pacing || '')
+      setValsalva(intDraft.valsalva || '')
+      setIvCannulation(intDraft.ivCannulation || '')
+      setIvSite(intDraft.ivSite || '')
+      setIvAttempts(intDraft.ivAttempts || '')
+      setIvSuccessful(intDraft.ivSuccessful || '')
+      setIoAccess(intDraft.ioAccess || '')
+      setIoSite(intDraft.ioSite || '')
+      setIoAttempts(intDraft.ioAttempts || '')
+      setIoSuccessful(intDraft.ioSuccessful || '')
+      setIoNotes(intDraft.ioNotes || '')
+      setChestDecompression(intDraft.chestDecompression || '')
+      setStomachDecompression(intDraft.stomachDecompression || '')
+      setCatheterTroubleshooting(intDraft.catheterTroubleshooting || '')
+      setNerveBlock(intDraft.nerveBlock || '')
+      setPositioning(intDraft.positioning || '')
+      setPositioningPosition(intDraft.positioningPosition || '')
+      setPositioningLegsElevated(intDraft.positioningLegsElevated || '')
+      setPositioningOther(intDraft.positioningOther || '')
+      setSplintDressingTag(intDraft.splintDressingTag || '')
+      setSplintSelection(intDraft.splintSelection || '')
+      setSplintOther(intDraft.splintOther || '')
+      setNasalTamponade(intDraft.nasalTamponade || '')
+      setTourniquet(intDraft.tourniquet || '')
+      setTourniquetLocation(intDraft.tourniquetLocation || '')
+      setTourniquetSuccessful(intDraft.tourniquetSuccessful || '')
+      setLimbReduction(intDraft.limbReduction || '')
+      setEpleManoeuvre(intDraft.epleManoeuvre || '')
+      setOtherInterventionNotes(intDraft.otherInterventionNotes || '')
+      setAirwayMethod(intDraft.airwayMethod || '')
+      if (intDraft.showNewIntervention) {
+        setShowNewIntervention(true)
+      }
+    }
+  }, [])
   
   const [showNewIntervention, setShowNewIntervention] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: boolean}>({})
   const [showAirwayModal, setShowAirwayModal] = useState(false)
   const [showRSIModal, setShowRSIModal] = useState(false)
   const [showCPRModal, setShowCPRModal] = useState(false)
@@ -129,21 +298,201 @@ export default function InterventionsPage() {
     router.push('/')
   }
 
+  const handleHome = () => {
+    const params = new URLSearchParams({ fleetId })
+    router.push(`/dashboard?${params}`)
+  }
+
+  const handleAdminPanel = () => {
+    const user = getCurrentUser()
+    if (user && isAdmin(user.discordId)) {
+      router.push('/admin')
+    }
+  }
+
+  const handleTransferClick = () => {
+    setShowTransferModal(true)
+  }
+
+  const handleTransferComplete = (targetUser: any) => {
+    const { transferAllPatients } = require('../utils/eprfHistoryService')
+    transferAllPatients(incidentId, targetUser.discordId, targetUser.callsign)
+    
+    setShowTransferModal(false)
+    setSuccessMessage({
+      title: 'ePRF Transferred',
+      message: `The ePRF has been transferred to ${targetUser.callsign}. You will be redirected to the dashboard.`
+    })
+    setShowSuccessModal(true)
+    setTimeout(() => {
+      handleHome()
+    }, 2000)
+  }
+  
+  // Save current intervention draft to localStorage
+  const saveDraft = () => {
+    if (!incidentId) return
+    const draft = {
+      showNewIntervention,
+      time,
+      performedBy,
+      airway,
+      ventilation,
+      peep,
+      cpap,
+      rsi,
+      cpr,
+      cprCompressions,
+      cprVentilations,
+      cprContinuous,
+      cprDiscontinued,
+      defibrillation,
+      defibrillationJoules,
+      cardioversion,
+      pacing,
+      valsalva,
+      ivCannulation,
+      ivSite,
+      ivAttempts,
+      ivSuccessful,
+      ioAccess,
+      ioSite,
+      ioAttempts,
+      ioSuccessful,
+      ioNotes,
+      chestDecompression,
+      stomachDecompression,
+      catheterTroubleshooting,
+      nerveBlock,
+      positioning,
+      positioningPosition,
+      positioningLegsElevated,
+      positioningOther,
+      splintDressingTag,
+      splintSelection,
+      splintOther,
+      nasalTamponade,
+      tourniquet,
+      tourniquetLocation,
+      tourniquetSuccessful,
+      limbReduction,
+      epleManoeuvre,
+      otherInterventionNotes,
+      airwayMethod
+    }
+    localStorage.setItem(`interventions_draft_${incidentId}`, JSON.stringify(draft))
+  }
+  
+  // Clear draft from localStorage
+  const clearDraft = () => {
+    if (incidentId) {
+      localStorage.removeItem(`interventions_draft_${incidentId}`)
+    }
+  }
+
   const navigateTo = (section: string) => {
+    // Save draft before navigating away
+    if (showNewIntervention) {
+      saveDraft()
+    }
     const params = new URLSearchParams({ id: incidentId, fleetId })
     if (section === 'incident') router.push(`/incident?${params}`)
     else if (section === 'patient-info') router.push(`/patient-info?${params}`)
     else if (section === 'primary-survey') router.push(`/primary-survey?${params}`)
     else if (section === 'vital-obs') router.push(`/vital-obs?${params}`)
     else if (section === 'medications') router.push(`/medications?${params}`)
+    else if (section === 'hx-complaint') router.push(`/hx-complaint?${params}`)
+    else if (section === 'past-medical-history') router.push(`/past-medical-history?${params}`)
+    else if (section === 'clinical-impression') router.push(`/clinical-impression?${params}`)
+    else if (section === 'disposition') router.push(`/disposition?${params}`)
+    else if (section === 'media') router.push(`/media?${params}`)
   }
 
   const handlePrevious = () => {
+    // Save draft before navigating
+    if (showNewIntervention) {
+      saveDraft()
+    }
     navigateTo('vital-obs')
   }
 
   const handleNext = () => {
+    // Save draft before navigating
+    if (showNewIntervention) {
+      saveDraft()
+    }
     // Navigate to next section when created
+  }
+
+  const handleSubmitEPRF = () => {
+    const result = validateAllSections(incidentId)
+    setIncompleteSections(result.incompleteSections)
+    
+    if (result.isValid) {
+      setShowSubmitModal(true)
+    } else {
+      setEprfValidationErrors(result.fieldErrors)
+      setShowValidationErrorModal(true)
+    }
+  }
+
+  const confirmSubmitEPRF = async () => {
+    setIsSubmitting(true)
+    try {
+      const result = await submitEPRFService(incidentId, fleetId)
+      
+      if (result.success) {
+        setShowSubmitModal(false)
+        setSuccessMessage({
+          title: 'ePRF Submitted Successfully!',
+          message: `The ePRF for Patient ${patientLetter} has been submitted.\n\nA PDF copy has been downloaded to your device and the record has been saved.`
+        })
+        setShowSuccessModal(true)
+      } else if (result.validationResult) {
+        setShowSubmitModal(false)
+        setEprfValidationErrors(result.validationResult.fieldErrors)
+        setIncompleteSections(result.validationResult.incompleteSections)
+        setShowValidationErrorModal(true)
+      }
+    } catch (error) {
+      console.error('Submit error:', error)
+      alert('An error occurred while submitting. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleAddPatientClick = () => {
+    setShowAddPatientModal(true)
+  }
+
+  const confirmAddPatient = async () => {
+    setIsSubmitting(true)
+    try {
+      const result = await addPatientService(incidentId)
+      
+      if (result.success) {
+        setShowAddPatientModal(false)
+        setPatientLetter(result.newLetter)
+        setSuccessMessage({
+          title: 'Patient Added Successfully!',
+          message: `Patient ${patientLetter} has been saved.\n\nYou are now working on Patient ${result.newLetter}.\n\nThe form has been cleared for the new patient.`
+        })
+        setShowSuccessModal(true)
+        
+        setTimeout(() => {
+          const params = new URLSearchParams({ id: incidentId, fleetId })
+          router.push(`/patient-info?${params}`)
+        }, 2000)
+      } else {
+        alert(result.error || 'Failed to add patient')
+      }
+    } catch (error) {
+      console.error('Add patient error:', error)
+      alert('An error occurred. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const openDateTimePicker = () => {
@@ -221,6 +570,17 @@ export default function InterventionsPage() {
   }
 
   const saveCurrentIntervention = () => {
+    // Check compulsory fields
+    const errors: {[key: string]: boolean} = {}
+    if (!time) errors.time = true
+    if (!performedBy) errors.performedBy = true
+    
+    setValidationErrors(errors)
+    
+    if (Object.keys(errors).length > 0) {
+      return false
+    }
+    
     const interventionEntry = {
       time,
       performedBy,
@@ -247,20 +607,27 @@ export default function InterventionsPage() {
       otherInterventionNotes
     }
     setSavedInterventions([...savedInterventions, interventionEntry])
+    setValidationErrors({})
+    return true
   }
 
   const handleSaveAndReturn = () => {
-    saveCurrentIntervention()
-    const params = new URLSearchParams({ id: incidentId, fleetId })
-    router.push(`/vital-obs?${params}`)
+    if (saveCurrentIntervention()) {
+      clearDraft()
+      const params = new URLSearchParams({ id: incidentId, fleetId })
+      router.push(`/vital-obs?${params}`)
+    }
   }
 
   const handleSaveAndEnterAnother = () => {
-    saveCurrentIntervention()
-    resetInterventionForm()
+    if (saveCurrentIntervention()) {
+      clearDraft()
+      resetInterventionForm()
+    }
   }
 
   const handleCancelAndDiscard = () => {
+    clearDraft()
     resetInterventionForm()
     setShowNewIntervention(false)
   }
@@ -407,23 +774,27 @@ export default function InterventionsPage() {
   return (
     <div className="eprf-dashboard incident-page">
       <div className="eprf-nav">
-        <button className="nav-btn">Home</button>
+        <button className="nav-btn" onClick={handleHome}>Home</button>
         <button className="nav-btn">Tools</button>
-        <button className="nav-btn">Quick Nav</button>
+        <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
         <button className="nav-btn" onClick={handleLogout}>Manage Crew</button>
+        <div className="page-counter">
+          <span className="patient-letter">{patientLetter}</span>
+          <span className="page-indicator">1 of 1</span>
+        </div>
       </div>
 
       <div className="incident-layout">
         <aside className="sidebar">
-          <button className="sidebar-btn" onClick={() => navigateTo('incident')}>Incident Information</button>
-          <button className="sidebar-btn" onClick={() => navigateTo('patient-info')}>Patient Information</button>
-          <button className="sidebar-btn" onClick={() => navigateTo('primary-survey')}>Primary Survey</button>
-          <button className="sidebar-btn" onClick={() => navigateTo('vital-obs')}>Vital Obs / Treat</button>
-          <button className="sidebar-btn">Hx Complaint</button>
-          <button className="sidebar-btn">Past Medical History</button>
-          <button className="sidebar-btn">Clinical Impression</button>
-          <button className="sidebar-btn">Disposition</button>
-          <button className="sidebar-btn">Media</button>
+          <button className={`sidebar-btn${incompleteSections.includes('incident') ? ' incomplete' : ''}`} onClick={() => navigateTo('incident')}>Incident Information</button>
+          <button className={`sidebar-btn${incompleteSections.includes('patient-info') ? ' incomplete' : ''}`} onClick={() => navigateTo('patient-info')}>Patient Information</button>
+          <button className={`sidebar-btn${incompleteSections.includes('primary-survey') ? ' incomplete' : ''}`} onClick={() => navigateTo('primary-survey')}>Primary Survey</button>
+          <button className={`sidebar-btn${incompleteSections.includes('vital-obs') ? ' incomplete' : ''}`} onClick={() => navigateTo('vital-obs')}>Vital Obs / Treat</button>
+          <button className={`sidebar-btn${incompleteSections.includes('hx-complaint') ? ' incomplete' : ''}`} onClick={() => navigateTo('hx-complaint')}>Hx Complaint</button>
+          <button className={`sidebar-btn${incompleteSections.includes('past-medical-history') ? ' incomplete' : ''}`} onClick={() => navigateTo('past-medical-history')}>Past Medical History</button>
+          <button className={`sidebar-btn${incompleteSections.includes('clinical-impression') ? ' incomplete' : ''}`} onClick={() => navigateTo('clinical-impression')}>Clinical Impression</button>
+          <button className={`sidebar-btn${incompleteSections.includes('disposition') ? ' incomplete' : ''}`} onClick={() => navigateTo('disposition')}>Disposition</button>
+          <button className="sidebar-btn" onClick={() => navigateTo('media')}>Media</button>
         </aside>
 
         <main className="incident-content">
@@ -471,14 +842,14 @@ export default function InterventionsPage() {
                 {/* Time and Performed By Row */}
                 <div className="intervention-header-row">
                   <div className="intervention-field" style={{ flex: '0 0 300px' }}>
-                    <label className="field-label required">Time</label>
+                    <label className={`field-label required ${validationErrors.time ? 'validation-error-label' : ''}`}>Time</label>
                     <div className="input-with-btn">
                       <input 
                         type="text" 
                         value={time} 
                         onChange={(e) => setTime(e.target.value)}
                         onClick={openDateTimePicker}
-                        className="text-input"
+                        className={`text-input ${validationErrors.time ? 'validation-error' : ''}`}
                         readOnly
                       />
                       <button className="now-btn" onClick={setNow}>Now</button>
@@ -486,12 +857,12 @@ export default function InterventionsPage() {
                   </div>
 
                   <div className="intervention-field" style={{ flex: 1 }}>
-                    <label className="field-label required">Performed by</label>
+                    <label className={`field-label required ${validationErrors.performedBy ? 'validation-error-label' : ''}`}>Performed by</label>
                     <input 
                       type="text" 
                       value={performedBy}
                       onChange={(e) => setPerformedBy(e.target.value)}
-                      className="text-input"
+                      className={`text-input ${validationErrors.performedBy ? 'validation-error' : ''}`}
                       placeholder="roblox username"
                     />
                   </div>
@@ -782,8 +1153,8 @@ export default function InterventionsPage() {
             <button className="footer-btn large-blue" onClick={handleNewIntervention}>New Intervention</button>
           </div>
           <div className="footer-center">
-            <button className="footer-btn green">Transfer ePRF</button>
-            <button className="footer-btn green">Submit ePRF</button>
+            <button className="footer-btn green" onClick={handleTransferClick}>Transfer ePRF</button>
+            <button className="footer-btn green" onClick={handleSubmitEPRF}>Submit ePRF</button>
           </div>
           <div className="footer-right">
             <button className="footer-btn orange" onClick={handlePrevious}>{"< Previous"}</button>
@@ -908,23 +1279,25 @@ export default function InterventionsPage() {
                 <div className="cpr-ratio-inputs">
                   <div className="cpr-input-group">
                     <label className="cpr-input-label">Compressions *</label>
-                    <input 
-                      type="number" 
+                    <NumericInput 
                       value={cprCompressions}
-                      onChange={(e) => setCprCompressions(e.target.value)}
+                      onChange={setCprCompressions}
                       className="cpr-input green-input"
                       disabled={cprContinuous}
+                      min={0}
+                      max={100}
                     />
                   </div>
                   <div className="cpr-ratio-divider">/</div>
                   <div className="cpr-input-group">
                     <label className="cpr-input-label">Ventilations *</label>
-                    <input 
-                      type="number" 
+                    <NumericInput 
                       value={cprVentilations}
-                      onChange={(e) => setCprVentilations(e.target.value)}
+                      onChange={setCprVentilations}
                       className="cpr-input"
                       disabled={cprContinuous}
+                      min={0}
+                      max={100}
                     />
                   </div>
                   <div className="cpr-or">OR</div>
@@ -1079,12 +1452,12 @@ export default function InterventionsPage() {
               </div>
               <div className="iv-section">
                 <label className="iv-section-label">Number of attempts</label>
-                <input 
-                  type="number"
+                <NumericInput
                   value={ivAttempts}
-                  onChange={(e) => setIvAttempts(e.target.value)}
+                  onChange={setIvAttempts}
                   className="iv-attempts-input"
-                  min="1"
+                  min={1}
+                  max={10}
                 />
               </div>
               <div className="iv-section">
@@ -1170,12 +1543,12 @@ export default function InterventionsPage() {
               </div>
               <div className="io-section">
                 <label className="io-section-label">Number of attempts</label>
-                <input 
-                  type="number"
+                <NumericInput
                   value={ioAttempts}
-                  onChange={(e) => setIoAttempts(e.target.value)}
+                  onChange={setIoAttempts}
                   className="io-attempts-input"
-                  min="1"
+                  min={1}
+                  max={10}
                 />
               </div>
               <div className="io-section">
@@ -1444,6 +1817,56 @@ export default function InterventionsPage() {
           </div>
         </div>
       )}
+
+      {/* Add Patient Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showAddPatientModal}
+        onClose={() => setShowAddPatientModal(false)}
+        onConfirm={confirmAddPatient}
+        title="Add New Patient"
+        message={`Are you sure you want to add a new patient?\n\nThis will:\n• Save the current Patient ${patientLetter} data\n• Create a new patient record (Patient ${String.fromCharCode(patientLetter.charCodeAt(0) + 1)})\n• Clear the form for the new patient`}
+        confirmText="Yes, Add Patient"
+        cancelText="Cancel"
+        type="info"
+        isLoading={isSubmitting}
+      />
+
+      {/* Submit ePRF Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showSubmitModal}
+        onClose={() => setShowSubmitModal(false)}
+        onConfirm={confirmSubmitEPRF}
+        title="Submit ePRF"
+        message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database\n• Download the PDF to your device`}
+        confirmText="Yes, Submit ePRF"
+        cancelText="Cancel"
+        type="success"
+        isLoading={isSubmitting}
+      />
+
+      {/* Validation Error Modal */}
+      <ValidationErrorModal
+        isOpen={showValidationErrorModal}
+        onClose={() => setShowValidationErrorModal(false)}
+        errors={eprfValidationErrors}
+        getSectionDisplayName={getSectionDisplayName}
+      />
+
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title={successMessage.title}
+        message={successMessage.message}
+      />
+
+      <TransferModal
+        isOpen={showTransferModal}
+        onClose={() => setShowTransferModal(false)}
+        onTransferComplete={handleTransferComplete}
+        incidentId={incidentId}
+        patientLetter={patientLetter}
+      />
     </div>
   )
 }
