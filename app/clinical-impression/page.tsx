@@ -1254,27 +1254,16 @@ export default function ClinicalImpressionPage() {
       />
 
       <ConfirmationModal
-        isOpen={showSubmitModal}
-        onClose={() => setShowSubmitModal(false)}
-          onConfirm={() => confirmSubmitEPRF(pdfOption)}
-          title="Submit ePRF"
-          message={`Are you sure you want to submit the ePRF for Patient ${patientLetter}?\n\nThis will:\n Generate a PDF copy for your records\n Submit the data to the server`}
-          confirmText="Yes, Submit ePRF"
-          cancelText="Cancel"
-          type="success"
-          isLoading={isSubmitting}
-        >
-          <div className="mt-4">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={pdfOption}
-                onChange={e => setPdfOption(e.target.checked)}
-              />
-              Download PDF after submit
-            </label>
-          </div>
-        </ConfirmationModal>
+      isOpen={showSubmitModal}
+      onClose={() => setShowSubmitModal(false)}
+      onConfirm={confirmSubmitEPRF}
+      title="Submit ePRF"
+      message={`Are you sure you want to submit the ePRF for Patient ${patientLetter}?\n\nThis will:\n• Generate a PDF copy for your records\n• Submit the data to the server`}
+      confirmText="Yes, Submit ePRF"
+      cancelText="Cancel"
+      type="success"
+      isLoading={isSubmitting}
+    />
 
       <ValidationErrorModal
         isOpen={showValidationErrorModal}
