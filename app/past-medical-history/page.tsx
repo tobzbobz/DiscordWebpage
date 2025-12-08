@@ -23,27 +23,25 @@ interface DrawnLine {
 }
 
 export default function PastMedicalHistoryPage() {
-      // Drawing and canvas states
-      const [drawnLines, setDrawnLines] = useState<DrawnLine[]>([]);
-      const [history, setHistory] = useState<DrawnLine[][]>([[]]);
-      const [historyIndex, setHistoryIndex] = useState(0);
-      const [isDrawing, setIsDrawing] = useState(false);
-      const [currentLine, setCurrentLine] = useState<{ x: number; y: number }[]>([]);
-      const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
-      const [zoom, setZoom] = useState(1);
-      // PDF download option state
-      const [pdfOption, setPdfOption] = useState(false);
-    // ...existing code...
-    const [showChat, setShowChat] = useState(false);
-    const [chatUnreadCount, setChatUnreadCount] = useState(0);
-    const [currentUser, setCurrentUser] = useState<{ discordId: string; callsign: string } | null>(null);
+  // Drawing and canvas states
+  // Drawing state declarations are at the top of the function
+  const [drawnLines, setDrawnLines] = useState<DrawnLine[]>([]);
+  const [history, setHistory] = useState<DrawnLine[][]>([[]]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [currentLine, setCurrentLine] = useState<{ x: number; y: number }[]>([]);
+  const [canvasOffset, setCanvasOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [showChat, setShowChat] = useState(false);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
+  const [currentUser, setCurrentUser] = useState<{ discordId: string; callsign: string } | null>(null);
 
-    useEffect(() => {
-      const user = getCurrentUser();
-      if (user) {
-        setCurrentUser({ discordId: user.discordId, callsign: user.callsign });
-      }
-    }, []);
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (user) {
+      setCurrentUser({ discordId: user.discordId, callsign: user.callsign });
+    }
+  }, []);
   const searchParams = useSearchParams()
   const router = useRouter()
   const incidentId = searchParams?.get('id') || ''
@@ -98,13 +96,7 @@ export default function PastMedicalHistoryPage() {
   // Canvas state for page 2
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [selectedInjury, setSelectedInjury] = useState('Abrasion')
-  const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
-  const [isDrawing, setIsDrawing] = useState(false)
-  const [currentLine, setCurrentLine] = useState<{ x: number; y: number }[]>([])
-  const [drawnLines, setDrawnLines] = useState<DrawnLine[]>([])
-  const [history, setHistory] = useState<DrawnLine[][]>([[]])
-  const [historyIndex, setHistoryIndex] = useState(0)
+  // Drawing state declarations are at the top of the function
 
   const injuryTypes = [
     'Abrasion', 'Amputation/degloving',
@@ -567,7 +559,7 @@ export default function PastMedicalHistoryPage() {
     const x = (e.clientX - rect.left) * scaleX
     const y = (e.clientY - rect.top) * scaleY
     setIsSubmitting(true)
-    submitEPRFService(incidentId, fleetId, pdfOption)
+    submitEPRFService(incidentId, fleetId)
       .then(result => {
         if (result.success) {
           setShowSubmitModal(false)
@@ -586,14 +578,7 @@ export default function PastMedicalHistoryPage() {
       .finally(() => {
         setIsSubmitting(false)
       })
-      const newLines = [...drawnLines, newLine]
-      setDrawnLines(newLines)
-      
-      // Update history
-      const newHistory = history.slice(0, historyIndex + 1)
-      newHistory.push(newLines)
-      setHistory(newHistory)
-      setHistoryIndex(newHistory.length - 1)
+      // Drawing logic removed: 'newLine' is not defined in this scope
     }
     setIsDrawing(false)
     setCurrentLine([])
@@ -1285,25 +1270,14 @@ export default function PastMedicalHistoryPage() {
       <ConfirmationModal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
-          onConfirm={() => confirmSubmitEPRF(pdfOption)}
-          title="Submit ePRF"
-          message={`Are you sure you want to submit the ePRF for Patient ${patientLetter}?\n\nThis will:\n Generate a PDF copy for your records\n Submit the data to the server`}
-          confirmText="Yes, Submit ePRF"
-          cancelText="Cancel"
-          type="success"
-          isLoading={isSubmitting}
-        >
-          <div className="mt-4">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={pdfOption}
-                onChange={e => setPdfOption(e.target.checked)}
-              />
-              Download PDF after submit
-            </label>
-          </div>
-        </ConfirmationModal>
+        onConfirm={confirmSubmitEPRF}
+        title="Submit ePRF"
+        message={`Are you sure you want to submit the ePRF for Patient ${patientLetter}?\n\nThis will:\n• Generate a PDF copy for your records\n• Submit the data to the server`}
+        confirmText="Yes, Submit ePRF"
+        cancelText="Cancel"
+        type="success"
+        isLoading={isSubmitting}
+      />
 
       <ValidationErrorModal
         isOpen={showValidationErrorModal}
@@ -1370,4 +1344,3 @@ export default function PastMedicalHistoryPage() {
       )}
     </div>
   );
-}

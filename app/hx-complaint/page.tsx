@@ -17,6 +17,8 @@ import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, can
 export const runtime = 'edge'
 
 export default function HxComplaintPage() {
+      // PDF download option state
+      const [pdfOption, setPdfOption] = useState(false)
     // ...existing code...
     const [showChat, setShowChat] = useState(false);
     const [chatUnreadCount, setChatUnreadCount] = useState(0);
@@ -790,20 +792,8 @@ export default function HxComplaintPage() {
       <ConfirmationModal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
-          onConfirm={() => confirmSubmitEPRF(pdfOption)}
-          title="Submit ePRF"
-        >
-          <div className="mt-4">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={pdfOption}
-                onChange={e => setPdfOption(e.target.checked)}
-              />
-              Download PDF after submit
-            </label>
-          </div>
-        </ConfirmationModal>
+        onConfirm={confirmSubmitEPRF}
+        title="Submit ePRF"
         message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database\n• Download the PDF to your device`}
         confirmText="Yes, Submit ePRF"
         cancelText="Cancel"

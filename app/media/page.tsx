@@ -202,7 +202,7 @@ export default function MediaPage() {
   const confirmSubmitEPRF = async () => {
     setIsSubmitting(true)
     try {
-      const result = await submitEPRFService(incidentId, fleetId, pdfOption)
+      const result = await submitEPRFService(incidentId, fleetId)
       if (result.success) {
         setShowSubmitModal(false)
         router.push('/dashboard')
@@ -762,4 +762,4 @@ export default function MediaPage() {
       )}
     </div>
   );
-};
+}
