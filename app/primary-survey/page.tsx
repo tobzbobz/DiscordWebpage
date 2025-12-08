@@ -11,7 +11,6 @@ import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
 import ConnectionStatus from '../components/ConnectionStatus'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
-import { getCurrentUser, clearCurrentUser } from '../utils/userService'
 import ChatWidget from '../components/ChatWidget'
 import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
@@ -599,22 +598,10 @@ export default function PrimarySurveyPage() {
       <ConfirmationModal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
-          onConfirm={() => confirmSubmitEPRF(pdfOption)}
-          title="Submit ePRF"
-          message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database`}
-          confirmText="Yes, Submit ePRF"
-        >
-          <div className="mt-4">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={pdfOption}
-                onChange={e => setPdfOption(e.target.checked)}
-              />
-              Download PDF after submit
-            </label>
-          </div>
-        </ConfirmationModal>
+        onConfirm={confirmSubmitEPRF}
+        title="Submit ePRF"
+        message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database\n• Download the PDF to your device`}
+        confirmText="Yes, Submit ePRF"
         cancelText="Cancel"
         type="success"
         isLoading={isSubmitting}
