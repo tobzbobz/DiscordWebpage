@@ -11,6 +11,8 @@ import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
 import ConnectionStatus from '../components/ConnectionStatus'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
+import { getCurrentUser, clearCurrentUser } from '../utils/userService'
+import ChatWidget from '../components/ChatWidget'
 import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
@@ -31,31 +33,35 @@ interface NumericInputProps {
 function NumericInput({ value, onChange, className = '', step = 1, min, max, placeholder, style, disabled }: NumericInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   
-  const increment = () => {
-    const currentVal = parseFloat(value) || 0
-    const newVal = max !== undefined ? Math.min(max, currentVal + step) : currentVal + step
-    onChange(step < 1 ? newVal.toFixed(1) : newVal.toString())
-  }
-  
-  const decrement = () => {
-    const currentVal = parseFloat(value) || 0
-    const newVal = min !== undefined ? Math.max(min, currentVal - step) : currentVal - step
-    onChange(step < 1 ? newVal.toFixed(1) : newVal.toString())
-  }
-  
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      increment()
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      decrement()
+  const saveDraft = () => {
+    if (!incidentId) return
+    try {
+      const draft = {
+        showNewVitals,
+        time,
+        gcs,
+        heartRate,
+        heartRateBpm,
+        respiratoryRate,
+        bloodPressure,
+        spo2,
+        ecg,
+        bloodGlucose,
+        capRefill,
+        temperature,
+        painScore,
+        pupils,
+        etco2,
+        skin,
+        pefr,
+        notes,
+        notesValue
+      }
+      localStorage.setItem(`vitals_draft_${incidentId}`, JSON.stringify(draft))
+    } catch (e) {
+      // Fail silently
     }
   }
-  
-  return (
-    <div className="numeric-input-wrapper" style={style}>
-      <input
         ref={inputRef}
         type="number"
         value={value}
@@ -79,6 +85,17 @@ function NumericInput({ value, onChange, className = '', step = 1, min, max, pla
 }
 
 export default function VitalObsPage() {
+    // ...existing code...
+    const [showChat, setShowChat] = useState(false);
+    const [chatUnreadCount, setChatUnreadCount] = useState(0);
+    const [currentUser, setCurrentUser] = useState<{ discordId: string; callsign: string } | null>(null);
+
+    useEffect(() => {
+      const user = getCurrentUser();
+      if (user) {
+        setCurrentUser({ discordId: user.discordId, callsign: user.callsign });
+      }
+    }, []);
   const searchParams = useSearchParams()
   const router = useRouter()
   const incidentId = searchParams?.get('id') || ''
@@ -171,6 +188,110 @@ export default function VitalObsPage() {
   // Notes view modal state
   const [showNotesViewModal, setShowNotesViewModal] = useState(false)
   const [viewingNotes, setViewingNotes] = useState('')
+  
+  // Medication entry modal state
+  const [showMedEntryModal, setShowMedEntryModal] = useState(false)
+  const [showMedSearchModal, setShowMedSearchModal] = useState(false)
+  const [showMedRouteModal, setShowMedRouteModal] = useState(false)
+  const [showMedNotesModal, setShowMedNotesModal] = useState(false)
+  const [showMedNotPossibleModal, setShowMedNotPossibleModal] = useState(false)
+  const [showMedDateTimePicker, setShowMedDateTimePicker] = useState(false)
+  const [medTime, setMedTime] = useState('')
+  const [medAdministeredBy, setMedAdministeredBy] = useState('')
+  const [medMedication, setMedMedication] = useState('')
+  const [medDose, setMedDose] = useState('')
+  const [medUnit, setMedUnit] = useState('')
+  const [medRoute, setMedRoute] = useState('')
+  const [medNotes, setMedNotes] = useState('')
+  const [medNotesTemp, setMedNotesTemp] = useState('')
+  const [medPrn, setMedPrn] = useState(false)
+  const [medDrawnUpNotUsed, setMedDrawnUpNotUsed] = useState(false)
+  const [medBrokenAmpoule, setMedBrokenAmpoule] = useState(false)
+  const [medDiscarded, setMedDiscarded] = useState(false)
+  const [medNotPossible, setMedNotPossible] = useState('')
+  const [medSearchQuery, setMedSearchQuery] = useState('')
+  const [medValidationErrors, setMedValidationErrors] = useState<{[key: string]: boolean}>({})
+  const [medPickerDay, setMedPickerDay] = useState(1)
+  const [medPickerMonth, setMedPickerMonth] = useState(1)
+  const [medPickerYear, setMedPickerYear] = useState(2025)
+  const [medPickerHour, setMedPickerHour] = useState(12)
+  const [medPickerMinute, setMedPickerMinute] = useState(0)
+  
+  // Intervention entry modal state
+  const [showInterventionEntryModal, setShowInterventionEntryModal] = useState(false)
+  const [showInterventionDateTimePicker, setShowInterventionDateTimePicker] = useState(false)
+  const [intTime, setIntTime] = useState('')
+  const [intPerformedBy, setIntPerformedBy] = useState('')
+  const [intAirway, setIntAirway] = useState('')
+  const [intVentilation, setIntVentilation] = useState('')
+  const [intPeep, setIntPeep] = useState('')
+  const [intCpap, setIntCpap] = useState('')
+  const [intRsi, setIntRsi] = useState('')
+  const [intCpr, setIntCpr] = useState('')
+  const [intDefibrillation, setIntDefibrillation] = useState('')
+  const [intCardioversion, setIntCardioversion] = useState('')
+  const [intPacing, setIntPacing] = useState('')
+  const [intValsalva, setIntValsalva] = useState('')
+  const [intIvCannulation, setIntIvCannulation] = useState('')
+  const [intIoAccess, setIntIoAccess] = useState('')
+  const [intChestDecompression, setIntChestDecompression] = useState('')
+  const [intStomachDecompression, setIntStomachDecompression] = useState('')
+  const [intCatheterTroubleshooting, setIntCatheterTroubleshooting] = useState('')
+  const [intNerveBlock, setIntNerveBlock] = useState('')
+  const [intPositioning, setIntPositioning] = useState('')
+  const [intSplintDressingTag, setIntSplintDressingTag] = useState('')
+  const [intNasalTamponade, setIntNasalTamponade] = useState('')
+  const [intTourniquet, setIntTourniquet] = useState('')
+  const [intLimbReduction, setIntLimbReduction] = useState('')
+  const [intEpleyManoeuvre, setIntEpleyManoeuvre] = useState('')
+  const [intOtherNotes, setIntOtherNotes] = useState('')
+  const [intValidationErrors, setIntValidationErrors] = useState<{[key: string]: boolean}>({})
+  const [intPickerDay, setIntPickerDay] = useState(1)
+  const [intPickerMonth, setIntPickerMonth] = useState(1)
+  const [intPickerYear, setIntPickerYear] = useState(2025)
+  const [intPickerHour, setIntPickerHour] = useState(12)
+  const [intPickerMinute, setIntPickerMinute] = useState(0)
+  
+  // Medication and intervention selection options
+  const medicationsList = [
+    { name: 'Adrenaline', code: 'ADR' },
+    { name: 'Amiodarone', code: 'AMI' },
+    { name: 'Aspirin', code: 'ASP' },
+    { name: 'Atropine', code: 'ATR' },
+    { name: 'Dextrose 10%', code: 'DEX' },
+    { name: 'Diazepam', code: 'DIA' },
+    { name: 'Entonox', code: 'ENT' },
+    { name: 'Fentanyl', code: 'FEN' },
+    { name: 'Glucagon', code: 'GLU' },
+    { name: 'GTN Spray', code: 'GTN' },
+    { name: 'Hydrocortisone', code: 'HYD' },
+    { name: 'Ibuprofen', code: 'IBU' },
+    { name: 'Ipratropium', code: 'IPR' },
+    { name: 'Ketamine', code: 'KET' },
+    { name: 'Lidocaine', code: 'LID' },
+    { name: 'Metoclopramide', code: 'MET' },
+    { name: 'Midazolam', code: 'MID' },
+    { name: 'Morphine', code: 'MOR' },
+    { name: 'Naloxone', code: 'NAL' },
+    { name: 'Ondansetron', code: 'OND' },
+    { name: 'Oxygen', code: 'O2' },
+    { name: 'Paracetamol', code: 'PAR' },
+    { name: 'Salbutamol', code: 'SAL' },
+    { name: 'Sodium Chloride 0.9%', code: 'NaCl' },
+    { name: 'Tranexamic Acid', code: 'TXA' }
+  ]
+  
+  const routesList = ['IV', 'IM', 'IO', 'SC', 'PO', 'SL', 'INH', 'NEB', 'TOP', 'PR', 'IN', 'ETT']
+  
+  const airwayOptions = ['OPA', 'NPA', 'iGel', 'LMA', 'ETT', 'Suction', 'Head Tilt Chin Lift', 'Jaw Thrust']
+  const ventilationOptions = ['BVM', 'Oxygen Mask', 'Nasal Cannula', 'Non-Rebreather', 'CPAP', 'BiPAP']
+
+  // Record view modals state (read-only view of submitted records)
+  const [showVitalViewModal, setShowVitalViewModal] = useState(false)
+  const [showMedViewModal, setShowMedViewModal] = useState(false)
+  const [showInterventionViewModal, setShowInterventionViewModal] = useState(false)
+  const [showCompetencyViewModal, setShowCompetencyViewModal] = useState(false)
+  const [viewingRecord, setViewingRecord] = useState<any>(null)
   
   // Load patient letter on mount
   useEffect(() => {
@@ -597,7 +718,25 @@ export default function VitalObsPage() {
     navigateTo('hx-complaint')
   }
 
+  // Check if there's an unsaved vital entry with data but missing compulsory fields
+  const hasUnsavedVitalData = () => {
+    if (!showNewVitals) return false
+    // Check if any optional field has data
+    const hasData = gcs || heartRate || respiratoryRate || bloodPressure || spo2 || 
+                    ecg || bloodGlucose || capRefill || temperature || painScore || 
+                    pupils || etco2 || skin || pefr || notes || notesValue
+    // If has data but no time, there's an incomplete entry
+    return hasData && !time
+  }
+
   const handleSubmitEPRF = () => {
+    // Check for unsaved vital with missing compulsory field
+    if (hasUnsavedVitalData()) {
+      setValidationErrors({ time: true })
+      alert('You have an unsaved vital entry. Please enter the required Time field or discard the entry before submitting.')
+      return
+    }
+    
     const result = validateAllSections(incidentId)
     setIncompleteSections(result.incompleteSections)
     
@@ -669,21 +808,287 @@ export default function VitalObsPage() {
   }
   
   const handleNewMeds = () => {
-    // Save vitals draft before navigating to meds
-    if (showNewVitals) {
-      saveDraft()
-    }
-    const params = new URLSearchParams({ id: incidentId, fleetId })
-    router.push(`/medications?${params}`)
+    // Reset medication form and open the medication search modal
+    setMedTime('')
+    setMedAdministeredBy('')
+    setMedMedication('')
+    setMedDose('')
+    setMedUnit('')
+    setMedRoute('')
+    setMedNotes('')
+    setMedPrn(false)
+    setMedAtpViolation('')
+    setMedDrawnUpNotUsed(false)
+    setMedBrokenAmpoule(false)
+    setMedDiscarded(false)
+    setMedNotPossible(false)
+    setMedNotPossibleReason('')
+    setMedSearchQuery('')
+    setMedValidationErrors({})
+    setShowMedSearchModal(true)
   }
   
   const handleNewIntervention = () => {
-    // Save vitals draft before navigating to interventions
-    if (showNewVitals) {
-      saveDraft()
+    // Reset intervention form and open the intervention entry modal
+    setIntTime('')
+    setIntPerformedBy('')
+    setIntAirway('')
+    setIntVentilation('')
+    setIntPeep('')
+    setIntCpap('')
+    setIntRsi('')
+    setIntCpr('')
+    setIntDefibrillation('')
+    setIntCardioversion('')
+    setIntPacing('')
+    setIntValsalva('')
+    setIntIvCannulation('')
+    setIntIoAccess('')
+    setIntChestDecompression('')
+    setIntStomachDecompression('')
+    setIntCatheterTroubleshooting('')
+    setIntNerveBlock('')
+    setIntPositioning('')
+    setIntSplintDressingTag('')
+    setIntNasalTamponade('')
+    setIntTourniquet('')
+    setIntLimbReduction('')
+    setIntEpleyManoeuvre('')
+    setIntOtherNotes('')
+    setIntValidationErrors({})
+    setShowInterventionEntryModal(true)
+  }
+  
+  // Medication entry helpers
+  const openMedDateTimePicker = () => {
+    const now = new Date()
+    setMedPickerDay(now.getDate())
+    setMedPickerMonth(now.getMonth() + 1)
+    setMedPickerYear(now.getFullYear())
+    setMedPickerHour(now.getHours())
+    setMedPickerMinute(now.getMinutes())
+    setShowMedDateTimePicker(true)
+  }
+  
+  const handleSetMedDateTime = () => {
+    const formatted = `${String(medPickerDay).padStart(2, '0')}/${String(medPickerMonth).padStart(2, '0')}/${medPickerYear} ${String(medPickerHour).padStart(2, '0')}:${String(medPickerMinute).padStart(2, '0')}`
+    setMedTime(formatted)
+    setMedValidationErrors({...medValidationErrors, time: false})
+    setShowMedDateTimePicker(false)
+  }
+  
+  const setMedNow = () => {
+    const now = new Date()
+    const formatted = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+    setMedTime(formatted)
+    setMedValidationErrors({...medValidationErrors, time: false})
+  }
+  
+  const handleMedicationSelect = (medName: string) => {
+    setMedMedication(medName)
+    setShowMedSearchModal(false)
+    setShowMedEntryModal(true)
+  }
+  
+  const handleMedRouteSelect = (routeOption: string) => {
+    setMedRoute(routeOption)
+    setShowMedRouteModal(false)
+  }
+  
+  const saveMedication = () => {
+    const errors: {[key: string]: boolean} = {}
+    if (!medTime) errors.time = true
+    if (!medAdministeredBy) errors.administeredBy = true
+    if (!medMedication) errors.medication = true
+    if (!medDose) errors.dose = true
+    if (!medUnit) errors.unit = true
+    if (!medRoute) errors.route = true
+    
+    setMedValidationErrors(errors)
+    
+    if (Object.keys(errors).length > 0) {
+      return false
     }
-    const params = new URLSearchParams({ id: incidentId, fleetId })
-    router.push(`/interventions?${params}`)
+    
+    const medEntry = {
+      time: medTime,
+      administeredBy: medAdministeredBy,
+      medication: medMedication,
+      dose: medDose,
+      unit: medUnit,
+      route: medRoute,
+      notes: medNotes,
+      prn: medPrn,
+      atpViolation: medAtpViolation,
+      drawnUpNotUsed: medDrawnUpNotUsed,
+      brokenAmpoule: medBrokenAmpoule,
+      discarded: medDiscarded,
+      notPossible: medNotPossible,
+      notPossibleReason: medNotPossibleReason
+    }
+    setSavedMeds([...savedMeds, medEntry])
+    return true
+  }
+  
+  const resetMedForm = () => {
+    setMedTime('')
+    setMedAdministeredBy('')
+    setMedMedication('')
+    setMedDose('')
+    setMedUnit('')
+    setMedRoute('')
+    setMedNotes('')
+    setMedNotesTemp('')
+    setMedPrn(false)
+    setMedAtpViolation('')
+    setMedDrawnUpNotUsed(false)
+    setMedBrokenAmpoule(false)
+    setMedDiscarded(false)
+    setMedNotPossible(false)
+    setMedNotPossibleReason('')
+    setMedValidationErrors({})
+  }
+  
+  const handleMedSaveAndReturn = () => {
+    if (saveMedication()) {
+      setShowMedEntryModal(false)
+    }
+  }
+  
+  const handleMedSaveAndEnterSame = () => {
+    if (saveMedication()) {
+      // Reset form but keep same medication selected
+      const currentMed = medMedication
+      resetMedForm()
+      setMedMedication(currentMed)
+    }
+  }
+  
+  const handleMedSaveAndEnterDifferent = () => {
+    if (saveMedication()) {
+      // Reset form and go back to medication search
+      resetMedForm()
+      setShowMedEntryModal(false)
+      setShowMedSearchModal(true)
+    }
+  }
+  
+  const handleMedSaveAndEnterAnother = () => {
+    if (saveMedication()) {
+      // Reset form but keep modal open
+      resetMedForm()
+      setShowMedEntryModal(false)
+      setShowMedSearchModal(true)
+    }
+  }
+  
+  // Intervention entry helpers
+  const openIntDateTimePicker = () => {
+    const now = new Date()
+    setIntPickerDay(now.getDate())
+    setIntPickerMonth(now.getMonth() + 1)
+    setIntPickerYear(now.getFullYear())
+    setIntPickerHour(now.getHours())
+    setIntPickerMinute(now.getMinutes())
+    setShowInterventionDateTimePicker(true)
+  }
+  
+  const handleSetIntDateTime = () => {
+    const formatted = `${String(intPickerDay).padStart(2, '0')}/${String(intPickerMonth).padStart(2, '0')}/${intPickerYear} ${String(intPickerHour).padStart(2, '0')}:${String(intPickerMinute).padStart(2, '0')}`
+    setIntTime(formatted)
+    setIntValidationErrors({...intValidationErrors, time: false})
+    setShowInterventionDateTimePicker(false)
+  }
+  
+  const setIntNow = () => {
+    const now = new Date()
+    const formatted = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+    setIntTime(formatted)
+    setIntValidationErrors({...intValidationErrors, time: false})
+  }
+  
+  const saveIntervention = () => {
+    const errors: {[key: string]: boolean} = {}
+    if (!intTime) errors.time = true
+    if (!intPerformedBy) errors.performedBy = true
+    
+    setIntValidationErrors(errors)
+    
+    if (Object.keys(errors).length > 0) {
+      return false
+    }
+    
+    const intEntry = {
+      time: intTime,
+      performedBy: intPerformedBy,
+      airway: intAirway,
+      ventilation: intVentilation,
+      peep: intPeep,
+      cpap: intCpap,
+      rsi: intRsi,
+      cpr: intCpr,
+      defibrillation: intDefibrillation,
+      cardioversion: intCardioversion,
+      pacing: intPacing,
+      valsalva: intValsalva,
+      ivCannulation: intIvCannulation,
+      ioAccess: intIoAccess,
+      chestDecompression: intChestDecompression,
+      stomachDecompression: intStomachDecompression,
+      catheterTroubleshooting: intCatheterTroubleshooting,
+      nerveBlock: intNerveBlock,
+      positioning: intPositioning,
+      splintDressingTag: intSplintDressingTag,
+      nasalTamponade: intNasalTamponade,
+      tourniquet: intTourniquet,
+      limbReduction: intLimbReduction,
+      epleyManoeuvre: intEpleyManoeuvre,
+      otherInterventionNotes: intOtherNotes
+    }
+    setSavedInterventions([...savedInterventions, intEntry])
+    return true
+  }
+  
+  const resetInterventionForm = () => {
+    setIntTime('')
+    setIntPerformedBy('')
+    setIntAirway('')
+    setIntVentilation('')
+    setIntPeep('')
+    setIntCpap('')
+    setIntRsi('')
+    setIntCpr('')
+    setIntDefibrillation('')
+    setIntCardioversion('')
+    setIntPacing('')
+    setIntValsalva('')
+    setIntIvCannulation('')
+    setIntIoAccess('')
+    setIntChestDecompression('')
+    setIntStomachDecompression('')
+    setIntCatheterTroubleshooting('')
+    setIntNerveBlock('')
+    setIntPositioning('')
+    setIntSplintDressingTag('')
+    setIntNasalTamponade('')
+    setIntTourniquet('')
+    setIntLimbReduction('')
+    setIntEpleyManoeuvre('')
+    setIntOtherNotes('')
+    setIntValidationErrors({})
+  }
+  
+  const handleIntSaveAndReturn = () => {
+    if (saveIntervention()) {
+      setShowInterventionEntryModal(false)
+    }
+  }
+  
+  const handleIntSaveAndEnterAnother = () => {
+    if (saveIntervention()) {
+      // Reset form but keep modal open
+      resetInterventionForm()
+    }
   }
 
   const openDateTimePicker = () => {
@@ -1204,11 +1609,27 @@ export default function VitalObsPage() {
     <div className="eprf-dashboard incident-page">
       <div className="eprf-nav">
         <button className="nav-btn" onClick={handleHome}>Home</button>
+        <button className="nav-btn chat-btn" onClick={() => setShowChat(!showChat)} title="Chat" style={{ position: 'relative' }}>
+          Chat
+          {chatUnreadCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: 2,
+              left: 2,
+              width: 12,
+              height: 12,
+              background: 'red',
+              borderRadius: '50%',
+              display: 'inline-block',
+              border: '2px solid white',
+              zIndex: 2
+            }}></span>
+          )}
+        </button>
         <button className="nav-btn" onClick={() => setShowPatientManagementModal(true)}>Manage Patients</button>
         {canManageCollaborators(userPermission) && (
           <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
         )}
-        <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
         <button className="nav-btn" onClick={handleLogout}>Logout</button>
         {incidentId && patientLetter && (
           <PresenceIndicator 
@@ -1247,25 +1668,39 @@ export default function VitalObsPage() {
               ) : (
                 <div style={{ marginTop: '20px' }}>
                   {getAllRecords().map((record, index) => (
-                    <div key={index} style={{
-                      backgroundColor: record.recordType === 'vital' ? '#e8f4f8' : record.recordType === 'medication' ? '#f0e8f8' : record.recordType === 'competency' ? '#f8f0e8' : '#e8f8e8',
-                      padding: '15px',
-                      marginBottom: '10px',
-                      borderRadius: '4px',
-                      border: record.recordType === 'vital' ? '1px solid #a8c5e0' : record.recordType === 'medication' ? '1px solid #c5a8e0' : record.recordType === 'competency' ? '1px solid #e0c5a8' : '1px solid #a8e0a8'
-                    }}>
+                    <div 
+                      key={index} 
+                      onClick={() => {
+                        setViewingRecord(record)
+                        if (record.recordType === 'vital') setShowVitalViewModal(true)
+                        else if (record.recordType === 'medication') setShowMedViewModal(true)
+                        else if (record.recordType === 'intervention') setShowInterventionViewModal(true)
+                        else if (record.recordType === 'competency') setShowCompetencyViewModal(true)
+                      }}
+                      style={{
+                        backgroundColor: record.recordType === 'vital' ? '#e8f4f8' : record.recordType === 'medication' ? '#f0e8f8' : record.recordType === 'competency' ? '#f8f0e8' : '#e8f8e8',
+                        padding: '15px',
+                        marginBottom: '10px',
+                        borderRadius: '4px',
+                        border: record.recordType === 'vital' ? '1px solid #a8c5e0' : record.recordType === 'medication' ? '1px solid #c5a8e0' : record.recordType === 'competency' ? '1px solid #e0c5a8' : '1px solid #a8e0a8',
+                        cursor: 'pointer'
+                      }}
+                    >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                        <span style={{ 
-                          fontWeight: 'bold', 
-                          fontSize: '14px',
-                          textTransform: 'uppercase',
-                          backgroundColor: record.recordType === 'vital' ? '#3182ce' : record.recordType === 'medication' ? '#805ad5' : record.recordType === 'competency' ? '#d69e2e' : '#38a169',
-                          color: '#fff',
-                          padding: '2px 8px',
-                          borderRadius: '4px'
-                        }}>
-                          {record.recordType === 'vital' ? 'VITALS' : record.recordType === 'medication' ? 'MEDICATION' : record.recordType === 'competency' ? 'COMPETENCY' : 'INTERVENTION'}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ 
+                            fontWeight: 'bold', 
+                            fontSize: '14px',
+                            textTransform: 'uppercase',
+                            backgroundColor: record.recordType === 'vital' ? '#3182ce' : record.recordType === 'medication' ? '#805ad5' : record.recordType === 'competency' ? '#d69e2e' : '#38a169',
+                            color: '#fff',
+                            padding: '2px 8px',
+                            borderRadius: '4px'
+                          }}>
+                            {record.recordType === 'vital' ? 'VITALS' : record.recordType === 'medication' ? 'MEDICATION' : record.recordType === 'competency' ? 'COMPETENCY' : 'INTERVENTION'}
+                          </span>
+                          <span style={{ fontSize: '11px', color: '#718096', fontStyle: 'italic' }}>(click to view full)</span>
+                        </div>
                         <span style={{ fontWeight: 'bold', color: '#4a5568' }}>
                           {record.time || record.timestamp || 'No time recorded'}
                         </span>
@@ -1353,13 +1788,9 @@ export default function VitalObsPage() {
                                 </div>
                               )}
                               {record.notes === 'Filled' && record.notesContent && (
-                                <div 
-                                  style={{ display: 'inline-block', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '6px', padding: '8px 12px', minWidth: '80px', textAlign: 'center', cursor: 'pointer' }}
-                                  onClick={() => { setViewingNotes(record.notesContent); setShowNotesViewModal(true); }}
-                                >
+                                <div style={{ display: 'inline-block', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '6px', padding: '8px 12px', minWidth: '80px', textAlign: 'center' }}>
                                   <div style={{ fontSize: '11px', color: '#4a5568', fontWeight: 'bold', marginBottom: '4px' }}>Notes</div>
                                   <div style={{ fontSize: '14px', color: '#4a5568' }}>Filled</div>
-                                  <div style={{ fontSize: '10px', color: '#718096' }}>(click for notes)</div>
                                 </div>
                               )}
                             </>
@@ -1632,7 +2063,7 @@ export default function VitalObsPage() {
       {!showNewVitals ? (
         <div className="eprf-footer vitals-footer">
           <div className="footer-left">
-            <button className="footer-btn green" onClick={handleAddPatientClick}>Add Patient</button>
+            <button className="footer-btn orange" onClick={handleAddPatientClick}>Add Patient</button>
             <button 
               className={`footer-btn green ${!canTransfer ? 'disabled' : ''}`} 
               onClick={handleTransferClick}
@@ -1653,11 +2084,41 @@ export default function VitalObsPage() {
       ) : (
         <div className="eprf-footer vitals-edit-footer">
           <ConnectionStatus />
+          <div className="footer-left">
+            <button className="footer-btn chat-btn" onClick={() => setShowChat(!showChat)} title="Chat" style={{ position: 'relative' }}>
+              Chat
+              {chatUnreadCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: 2,
+                  left: 2,
+                  width: 12,
+                  height: 12,
+                  background: 'red',
+                  borderRadius: '50%',
+                  display: 'inline-block',
+                  border: '2px solid white',
+                  zIndex: 2
+                }}></span>
+              )}
+            </button>
+          </div>
           <div className="footer-right">
             <button className="footer-btn gray" onClick={handleCancelAndDiscard}>Cancel and discard changes</button>
             <button className="footer-btn blue" onClick={handleSaveAndEnterAnother}>Save and enter another set of observations</button>
             <button className="footer-btn blue" onClick={handleSaveAndReturn}>Save and return to Vital Obs/Treat</button>
           </div>
+          {/* Chat Widget for new vitals/meds/interventions views */}
+          {currentUser && (
+            <ChatWidget
+              incidentId={incidentId}
+              discordId={currentUser.discordId}
+              callsign={currentUser.callsign}
+              patientLetter={patientLetter}
+              onUnreadChange={setChatUnreadCount}
+              isOpen={showChat}
+            />
+          )}
         </div>
       )}
 
@@ -3279,12 +3740,22 @@ export default function VitalObsPage() {
                           }}
                         >
                           <div style={{
-                            width: `${size * 4}px`,
-                            height: `${size * 4}px`,
+                            width: '36px',
+                            height: '36px',
                             borderRadius: '50%',
-                            background: 'radial-gradient(circle, #000 0%, #000 40%, #4a7c59 45%, #6b9b4f 60%, #8fb573 75%, #a8c896 100%)',
-                            border: '2px solid #333'
-                          }}></div>
+                            background: 'radial-gradient(circle, #4a7c59 0%, #6b9b4f 40%, #8fb573 70%, #a8c896 100%)',
+                            border: '2px solid #333',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}>
+                            <div style={{
+                              width: `${size * 3}px`,
+                              height: `${size * 3}px`,
+                              borderRadius: '50%',
+                              background: '#000'
+                            }}></div>
+                          </div>
                           <span style={{ fontWeight: 'bold', fontSize: '12px', color: '#333' }}>{size}</span>
                         </div>
                       ))}
@@ -3309,14 +3780,24 @@ export default function VitalObsPage() {
                           }}
                         >
                           <div style={{
-                            width: size === 0 ? '4px' : `${size * 4}px`,
-                            height: size === 0 ? '4px' : `${size * 4}px`,
+                            width: '36px',
+                            height: '36px',
                             borderRadius: '50%',
-                            background: size === 0 ? '#000' : 'radial-gradient(circle, #000 0%, #000 40%, #4a7c59 45%, #6b9b4f 60%, #8fb573 75%, #a8c896 100%)',
+                            background: 'radial-gradient(circle, #4a7c59 0%, #6b9b4f 40%, #8fb573 70%, #a8c896 100%)',
                             border: '2px solid #333',
-                            minWidth: '4px',
-                            minHeight: '4px'
-                          }}></div>
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}>
+                            {size > 0 && (
+                              <div style={{
+                                width: `${size * 3}px`,
+                                height: `${size * 3}px`,
+                                borderRadius: '50%',
+                                background: '#000'
+                              }}></div>
+                            )}
+                          </div>
                           <span style={{ fontWeight: 'bold', fontSize: '12px', color: '#333' }}>{size}</span>
                         </div>
                       ))}
@@ -3389,12 +3870,22 @@ export default function VitalObsPage() {
                           }}
                         >
                           <div style={{
-                            width: `${size * 4}px`,
-                            height: `${size * 4}px`,
+                            width: '36px',
+                            height: '36px',
                             borderRadius: '50%',
-                            background: 'radial-gradient(circle, #000 0%, #000 40%, #4a7c59 45%, #6b9b4f 60%, #8fb573 75%, #a8c896 100%)',
-                            border: '2px solid #333'
-                          }}></div>
+                            background: 'radial-gradient(circle, #4a7c59 0%, #6b9b4f 40%, #8fb573 70%, #a8c896 100%)',
+                            border: '2px solid #333',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}>
+                            <div style={{
+                              width: `${size * 3}px`,
+                              height: `${size * 3}px`,
+                              borderRadius: '50%',
+                              background: '#000'
+                            }}></div>
+                          </div>
                           <span style={{ fontWeight: 'bold', fontSize: '12px', color: '#333' }}>{size}</span>
                         </div>
                       ))}
@@ -3419,14 +3910,24 @@ export default function VitalObsPage() {
                           }}
                         >
                           <div style={{
-                            width: size === 0 ? '4px' : `${size * 4}px`,
-                            height: size === 0 ? '4px' : `${size * 4}px`,
+                            width: '36px',
+                            height: '36px',
                             borderRadius: '50%',
-                            background: size === 0 ? '#000' : 'radial-gradient(circle, #000 0%, #000 40%, #4a7c59 45%, #6b9b4f 60%, #8fb573 75%, #a8c896 100%)',
+                            background: 'radial-gradient(circle, #4a7c59 0%, #6b9b4f 40%, #8fb573 70%, #a8c896 100%)',
                             border: '2px solid #333',
-                            minWidth: '4px',
-                            minHeight: '4px'
-                          }}></div>
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}>
+                            {size > 0 && (
+                              <div style={{
+                                width: `${size * 3}px`,
+                                height: `${size * 3}px`,
+                                borderRadius: '50%',
+                                background: '#000'
+                              }}></div>
+                            )}
+                          </div>
                           <span style={{ fontWeight: 'bold', fontSize: '12px', color: '#333' }}>{size}</span>
                         </div>
                       ))}
@@ -3658,6 +4159,1613 @@ export default function VitalObsPage() {
 
             <div className="vital-modal-actions" style={{ justifyContent: 'center' }}>
               <button className="vital-modal-btn ok" onClick={() => setShowNotesViewModal(false)}>Go Back</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Vitals View Modal (read-only) */}
+      {showVitalViewModal && viewingRecord && (
+        <div className="modal-overlay" onClick={() => { setShowVitalViewModal(false); setViewingRecord(null); }}>
+          <div className="vital-detail-modal" onClick={(e) => e.stopPropagation()} style={{ minWidth: '500px', maxWidth: '700px' }}>
+            <div className="vital-modal-header">Vitals Record</div>
+            
+            <div className="vital-modal-section">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Time</div>
+                  <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.time || 'Not recorded'}</div>
+                </div>
+                {viewingRecord.gcs && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>GCS</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.gcs}</div>
+                  </div>
+                )}
+                {viewingRecord.heartRate && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Heart Rate</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.heartRate}</div>
+                  </div>
+                )}
+                {viewingRecord.respiratoryRate && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Respiratory Rate</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.respiratoryRate}</div>
+                  </div>
+                )}
+                {viewingRecord.bloodPressure && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Blood Pressure</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.bloodPressure}</div>
+                  </div>
+                )}
+                {viewingRecord.spo2 && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>SpO2</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.spo2}</div>
+                  </div>
+                )}
+                {viewingRecord.ecg && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>ECG</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.ecg}</div>
+                  </div>
+                )}
+                {viewingRecord.bloodGlucose && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Blood Glucose</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.bloodGlucose}</div>
+                  </div>
+                )}
+                {viewingRecord.capRefill && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Cap Refill</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.capRefill}</div>
+                  </div>
+                )}
+                {viewingRecord.temperature && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Temperature</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.temperature}</div>
+                  </div>
+                )}
+                {viewingRecord.painScore && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Pain Score</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.painScore}</div>
+                  </div>
+                )}
+                {viewingRecord.pupils && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Pupils</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.pupils}</div>
+                  </div>
+                )}
+                {viewingRecord.etco2 && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>ETCO2</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.etco2}</div>
+                  </div>
+                )}
+                {viewingRecord.skin && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Skin</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.skin}</div>
+                  </div>
+                )}
+                {viewingRecord.pefr && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>PEFR</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.pefr}</div>
+                  </div>
+                )}
+              </div>
+              {viewingRecord.notesContent && (
+                <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Notes</div>
+                  <div style={{ fontSize: '14px', color: '#4a5568', whiteSpace: 'pre-wrap' }}>{viewingRecord.notesContent}</div>
+                </div>
+              )}
+            </div>
+
+            <div className="vital-modal-actions" style={{ justifyContent: 'center' }}>
+              <button className="vital-modal-btn ok" onClick={() => { setShowVitalViewModal(false); setViewingRecord(null); }}>Go Back</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Medication View Modal (read-only) */}
+      {showMedViewModal && viewingRecord && (
+        <div className="modal-overlay" onClick={() => { setShowMedViewModal(false); setViewingRecord(null); }}>
+          <div className="vital-detail-modal" onClick={(e) => e.stopPropagation()} style={{ minWidth: '500px', maxWidth: '700px' }}>
+            <div className="vital-modal-header">Medication Record</div>
+            
+            <div className="vital-modal-section">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Time</div>
+                  <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.time || viewingRecord.timestamp || 'Not recorded'}</div>
+                </div>
+                {(viewingRecord.administeredBy || viewingRecord.givenBy) && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Administered By</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.administeredBy || viewingRecord.givenBy}</div>
+                  </div>
+                )}
+                {viewingRecord.medication && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc', gridColumn: 'span 2' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Medication</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.medication}</div>
+                  </div>
+                )}
+                {viewingRecord.prn && (
+                  <div style={{ padding: '10px', backgroundColor: '#e6f7e6', borderRadius: '4px', border: '1px solid #9ae6b4' }}>
+                    <div style={{ fontSize: '11px', color: '#276749', fontWeight: 'bold', marginBottom: '4px' }}>PRN</div>
+                    <div style={{ fontSize: '14px', color: '#276749' }}>Yes</div>
+                  </div>
+                )}
+                {viewingRecord.dose && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Dose</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.dose} {viewingRecord.unit || ''}</div>
+                  </div>
+                )}
+                {viewingRecord.route && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Route</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.route}</div>
+                  </div>
+                )}
+              </div>
+              {viewingRecord.notes && (
+                <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Notes</div>
+                  <div style={{ fontSize: '14px', color: '#4a5568', whiteSpace: 'pre-wrap' }}>{viewingRecord.notes}</div>
+                </div>
+              )}
+              {/* Status flags */}
+              {(viewingRecord.drawnUpNotUsed || viewingRecord.brokenAmpoule || viewingRecord.discarded || viewingRecord.notPossible || viewingRecord.notPossibleReason) && (
+                <div style={{ marginTop: '15px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                  {viewingRecord.drawnUpNotUsed && (
+                    <span style={{ padding: '5px 10px', backgroundColor: '#fef3c7', color: '#92400e', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>Drawn up not used</span>
+                  )}
+                  {viewingRecord.brokenAmpoule && (
+                    <span style={{ padding: '5px 10px', backgroundColor: '#fee2e2', color: '#991b1b', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>Broken ampoule</span>
+                  )}
+                  {viewingRecord.discarded && (
+                    <span style={{ padding: '5px 10px', backgroundColor: '#fecaca', color: '#dc2626', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>Discarded</span>
+                  )}
+                  {(viewingRecord.notPossible || viewingRecord.notPossibleReason) && (
+                    <span style={{ padding: '5px 10px', backgroundColor: '#e5e7eb', color: '#374151', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>Not possible: {viewingRecord.notPossibleReason || viewingRecord.notPossible}</span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="vital-modal-actions" style={{ justifyContent: 'center' }}>
+              <button className="vital-modal-btn ok" onClick={() => { setShowMedViewModal(false); setViewingRecord(null); }}>Go Back</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Intervention View Modal (read-only) */}
+      {showInterventionViewModal && viewingRecord && (
+        <div className="modal-overlay" onClick={() => { setShowInterventionViewModal(false); setViewingRecord(null); }}>
+          <div className="vital-detail-modal" onClick={(e) => e.stopPropagation()} style={{ minWidth: '600px', maxWidth: '800px', maxHeight: '85vh', overflow: 'auto' }}>
+            <div className="vital-modal-header">Intervention Record</div>
+            
+            <div className="vital-modal-section">
+              {/* Time and Performed By */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+                <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Time</div>
+                  <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.time || viewingRecord.timestamp || 'Not recorded'}</div>
+                </div>
+                {viewingRecord.performedBy && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Performed By</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.performedBy}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Airway Section */}
+              {(viewingRecord.airway || viewingRecord.ventilation || viewingRecord.peep || viewingRecord.cpap || viewingRecord.rsi) && (
+                <div style={{ marginBottom: '15px' }}>
+                  <div style={{ fontWeight: 'bold', color: '#2c5282', marginBottom: '10px', borderBottom: '2px solid #4a90e2', paddingBottom: '5px' }}>Airway</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+                    {viewingRecord.airway && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>Airway</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.airway}</div>
+                      </div>
+                    )}
+                    {viewingRecord.ventilation && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>Ventilation</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.ventilation}</div>
+                      </div>
+                    )}
+                    {viewingRecord.peep && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>PEEP</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.peep}</div>
+                      </div>
+                    )}
+                    {viewingRecord.cpap && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>CPAP</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.cpap}</div>
+                      </div>
+                    )}
+                    {viewingRecord.rsi && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>RSI</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.rsi}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Cardiac Section */}
+              {(viewingRecord.cpr || viewingRecord.defibrillation || viewingRecord.cardioversion || viewingRecord.pacing || viewingRecord.valsalva) && (
+                <div style={{ marginBottom: '15px' }}>
+                  <div style={{ fontWeight: 'bold', color: '#2c5282', marginBottom: '10px', borderBottom: '2px solid #4a90e2', paddingBottom: '5px' }}>Cardiac</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+                    {viewingRecord.cpr && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>CPR</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.cpr}</div>
+                      </div>
+                    )}
+                    {viewingRecord.defibrillation && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>Defibrillation</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.defibrillation}J</div>
+                      </div>
+                    )}
+                    {viewingRecord.cardioversion && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>Cardioversion</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.cardioversion}J</div>
+                      </div>
+                    )}
+                    {viewingRecord.pacing && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>Pacing</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.pacing}</div>
+                      </div>
+                    )}
+                    {viewingRecord.valsalva && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>Valsalva</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.valsalva}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Invasive Section */}
+              {(viewingRecord.ivCannulation || viewingRecord.ioAccess || viewingRecord.chestDecompression || viewingRecord.stomachDecompression || viewingRecord.catheterTroubleshooting || viewingRecord.nerveBlock) && (
+                <div style={{ marginBottom: '15px' }}>
+                  <div style={{ fontWeight: 'bold', color: '#2c5282', marginBottom: '10px', borderBottom: '2px solid #4a90e2', paddingBottom: '5px' }}>Invasive</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                    {viewingRecord.ivCannulation && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>IV Cannulation</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.ivCannulation}</div>
+                      </div>
+                    )}
+                    {viewingRecord.ioAccess && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>IO Access</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.ioAccess}</div>
+                      </div>
+                    )}
+                    {viewingRecord.chestDecompression && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>Chest Decompression</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.chestDecompression}</div>
+                      </div>
+                    )}
+                    {viewingRecord.stomachDecompression && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>Stomach Decompression</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.stomachDecompression}</div>
+                      </div>
+                    )}
+                    {viewingRecord.catheterTroubleshooting && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>Catheter Troubleshooting</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.catheterTroubleshooting}</div>
+                      </div>
+                    )}
+                    {viewingRecord.nerveBlock && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>Nerve Block</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.nerveBlock}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Other Section */}
+              {(viewingRecord.positioning || viewingRecord.splintDressingTag || viewingRecord.nasalTamponade || viewingRecord.tourniquet || viewingRecord.limbReduction || viewingRecord.epleyManoeuvre || viewingRecord.otherInterventionNotes) && (
+                <div style={{ marginBottom: '15px' }}>
+                  <div style={{ fontWeight: 'bold', color: '#2c5282', marginBottom: '10px', borderBottom: '2px solid #4a90e2', paddingBottom: '5px' }}>Other</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                    {viewingRecord.positioning && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>Positioning</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.positioning}</div>
+                      </div>
+                    )}
+                    {viewingRecord.splintDressingTag && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>Splint/Dressing/Tag</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.splintDressingTag}</div>
+                      </div>
+                    )}
+                    {viewingRecord.nasalTamponade && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>Nasal Tamponade</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.nasalTamponade}</div>
+                      </div>
+                    )}
+                    {viewingRecord.tourniquet && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>Tourniquet</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.tourniquet}</div>
+                      </div>
+                    )}
+                    {viewingRecord.limbReduction && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>Limb Reduction</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.limbReduction}</div>
+                      </div>
+                    )}
+                    {viewingRecord.epleyManoeuvre && (
+                      <div style={{ padding: '8px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                        <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold' }}>Epley Manoeuvre</div>
+                        <div style={{ fontSize: '13px', color: '#4a5568' }}>{viewingRecord.epleyManoeuvre}</div>
+                      </div>
+                    )}
+                  </div>
+                  {viewingRecord.otherInterventionNotes && (
+                    <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                      <div style={{ fontSize: '10px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Other Notes</div>
+                      <div style={{ fontSize: '13px', color: '#4a5568', whiteSpace: 'pre-wrap' }}>{viewingRecord.otherInterventionNotes}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="vital-modal-actions" style={{ justifyContent: 'center' }}>
+              <button className="vital-modal-btn ok" onClick={() => { setShowInterventionViewModal(false); setViewingRecord(null); }}>Go Back</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Competency View Modal (read-only) */}
+      {showCompetencyViewModal && viewingRecord && (
+        <div className="modal-overlay" onClick={() => { setShowCompetencyViewModal(false); setViewingRecord(null); }}>
+          <div className="vital-detail-modal" onClick={(e) => e.stopPropagation()} style={{ minWidth: '450px', maxWidth: '600px' }}>
+            <div className="vital-modal-header">Competency Record</div>
+            
+            <div className="vital-modal-section">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Time</div>
+                  <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.time || viewingRecord.timestamp || 'Not recorded'}</div>
+                </div>
+                <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Understand Info?</div>
+                  <div style={{ fontSize: '14px', color: viewingRecord.understandInfo === 'yes' ? '#38a169' : '#e53e3e' }}>{viewingRecord.understandInfo === 'yes' ? 'Yes' : 'No'}</div>
+                </div>
+                <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Understand Consequences?</div>
+                  <div style={{ fontSize: '14px', color: viewingRecord.understandConsequences === 'yes' ? '#38a169' : '#e53e3e' }}>{viewingRecord.understandConsequences === 'yes' ? 'Yes' : 'No'}</div>
+                </div>
+                <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Remember Info?</div>
+                  <div style={{ fontSize: '14px', color: viewingRecord.rememberInfo === 'yes' ? '#38a169' : '#e53e3e' }}>{viewingRecord.rememberInfo === 'yes' ? 'Yes' : 'No'}</div>
+                </div>
+                <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Self Harm?</div>
+                  <div style={{ fontSize: '14px', color: viewingRecord.selfHarm === 'yes' ? '#e53e3e' : '#38a169' }}>{viewingRecord.selfHarm === 'yes' ? 'Yes' : 'No'}</div>
+                </div>
+                <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Assessed Competent?</div>
+                  <div style={{ fontSize: '14px', color: viewingRecord.isCompetent === 'yes' ? '#38a169' : '#e53e3e' }}>{viewingRecord.isCompetent === 'yes' ? 'Yes' : 'No'}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="vital-modal-actions" style={{ justifyContent: 'center' }}>
+              <button className="vital-modal-btn ok" onClick={() => { setShowCompetencyViewModal(false); setViewingRecord(null); }}>Go Back</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Medication Search Modal */}
+      {showMedSearchModal && (
+        <div className="modal-overlay" onClick={() => setShowMedSearchModal(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            backgroundColor: '#b8cce4',
+            borderRadius: '5px',
+            width: '95%',
+            maxWidth: '600px',
+            maxHeight: '80vh',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {/* Header */}
+            <div style={{
+              background: 'linear-gradient(to bottom, #c63031, #a52829)',
+              color: 'white',
+              padding: '8px 15px',
+              fontWeight: 'bold',
+              fontSize: '14px'
+            }}>
+              Search Medication
+            </div>
+            
+            {/* Search Input Section */}
+            <div style={{ padding: '15px', borderBottom: '1px solid #7a9cc0' }}>
+              <label style={{ display: 'block', fontWeight: 'bold', color: '#1a3a5c', marginBottom: '6px' }}>
+                Medication<span style={{ color: '#cc0000' }}>*</span>
+              </label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input 
+                  type="text" 
+                  value={medSearchQuery}
+                  onChange={(e) => setMedSearchQuery(e.target.value)}
+                  placeholder="Type to search..."
+                  style={{
+                    flex: 1,
+                    padding: '10px 15px',
+                    fontSize: '14px',
+                    border: '1px solid #7a9cc0',
+                    borderRadius: '3px'
+                  }}
+                  autoFocus
+                />
+                <button 
+                  onClick={() => setMedSearchQuery('')}
+                  style={{ 
+                    padding: '10px 20px', 
+                    background: 'linear-gradient(to bottom, #888, #666)', 
+                    color: 'white', 
+                    border: '1px solid #555', 
+                    borderRadius: '3px', 
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                >Reset...</button>
+                <button 
+                  style={{ 
+                    padding: '10px 20px', 
+                    background: 'linear-gradient(to bottom, #4a7eba, #3a6ea8)', 
+                    color: 'white', 
+                    border: '1px solid #2a5a94', 
+                    borderRadius: '3px', 
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                >Search</button>
+              </div>
+            </div>
+
+            {/* Medication List */}
+            <div style={{ padding: '10px 15px', backgroundColor: '#a8bcd4', fontWeight: 'bold', color: '#1a3a5c' }}>
+              Medication<span style={{ color: '#cc0000' }}>*</span>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', maxHeight: '400px' }}>
+              {medicationsList
+                .filter(med => med.name.toLowerCase().includes(medSearchQuery.toLowerCase()))
+                .map((med, index) => (
+                  <div 
+                    key={index}
+                    onClick={() => handleMedicationSelect(med.name)}
+                    style={{
+                      padding: '10px 15px',
+                      cursor: 'pointer',
+                      borderBottom: '1px solid #7a9cc0',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      backgroundColor: index % 2 === 0 ? '#c8d8e8' : '#b8cce4',
+                      color: '#1a3a5c'
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#a8bcd4')}
+                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = index % 2 === 0 ? '#c8d8e8' : '#b8cce4')}
+                  >
+                    <span style={{ fontWeight: 'bold' }}>{med.name}</span>
+                    <span style={{ fontSize: '12px', opacity: 0.8 }}>{med.code}</span>
+                  </div>
+                ))}
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '10px 15px', borderTop: '1px solid #7a9cc0', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button 
+                onClick={() => setShowMedSearchModal(false)}
+                style={{ 
+                  padding: '8px 20px', 
+                  background: 'linear-gradient(to bottom, #888, #666)', 
+                  color: 'white', 
+                  border: '1px solid #555', 
+                  borderRadius: '3px', 
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >Cancel</button>
+              <button 
+                onClick={() => setShowMedSearchModal(false)}
+                style={{ 
+                  padding: '8px 20px', 
+                  background: 'linear-gradient(to bottom, #4a7eba, #3a6ea8)', 
+                  color: 'white', 
+                  border: '1px solid #2a5a94', 
+                  borderRadius: '3px', 
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >OK</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Medication Entry Modal */}
+      {showMedEntryModal && (
+        <div className="modal-overlay" onClick={() => setShowMedEntryModal(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            backgroundColor: '#b8cce4',
+            borderRadius: '5px',
+            width: '95%',
+            maxWidth: '900px',
+            maxHeight: '90vh',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {/* Header */}
+            <div style={{
+              background: 'linear-gradient(to bottom, #c63031, #a52829)',
+              color: 'white',
+              padding: '8px 15px',
+              fontWeight: 'bold',
+              fontSize: '14px'
+            }}>
+              Add Medication: {medMedication}
+            </div>
+
+            {/* Form Content */}
+            <div style={{ padding: '20px', flex: 1, overflowY: 'auto' }}>
+              {/* Row 1: Time and Administered By */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 'bold', color: '#1a3a5c', marginBottom: '6px' }}>
+                    Time<span style={{ color: '#cc0000' }}>*</span>
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input 
+                      type="text" 
+                      value={medTime}
+                      onClick={openMedDateTimePicker}
+                      readOnly
+                      style={{ 
+                        flex: 1, 
+                        padding: '10px 15px', 
+                        border: medValidationErrors.time ? '2px solid #cc0000' : '1px solid #7a9cc0', 
+                        borderRadius: '3px', 
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    />
+                    <button onClick={setMedNow} style={{ 
+                      padding: '10px 20px', 
+                      background: 'linear-gradient(to bottom, #4a7eba, #3a6ea8)', 
+                      color: 'white', 
+                      border: '1px solid #2a5a94', 
+                      borderRadius: '3px', 
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}>Now</button>
+                  </div>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 'bold', color: '#1a3a5c', marginBottom: '6px' }}>
+                    Administered by<span style={{ color: '#cc0000' }}>*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    value={medAdministeredBy}
+                    onChange={(e) => setMedAdministeredBy(e.target.value)}
+                    placeholder="Roblox username"
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px 15px', 
+                      border: medValidationErrors.administeredBy ? '2px solid #cc0000' : '1px solid #7a9cc0', 
+                      borderRadius: '3px',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: Medication (full width with buttons) */}
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', fontWeight: 'bold', color: '#1a3a5c', marginBottom: '6px' }}>
+                  Medication<span style={{ color: '#cc0000' }}>*</span>
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input 
+                    type="text" 
+                    value={medMedication}
+                    readOnly
+                    style={{ 
+                      flex: 1, 
+                      padding: '10px 15px', 
+                      border: '1px solid #7a9cc0', 
+                      borderRadius: '3px', 
+                      backgroundColor: '#f5f5f5',
+                      fontSize: '14px'
+                    }}
+                  />
+                  <button 
+                    onClick={() => {
+                      setShowMedEntryModal(false)
+                      setShowMedSearchModal(true)
+                    }}
+                    style={{ 
+                      padding: '10px 20px', 
+                      background: 'linear-gradient(to bottom, #4a7eba, #3a6ea8)', 
+                      color: 'white', 
+                      border: '1px solid #2a5a94', 
+                      borderRadius: '3px', 
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                  >Search</button>
+                  <button 
+                    onClick={() => {
+                      setShowMedEntryModal(false)
+                      setShowMedSearchModal(true)
+                    }}
+                    style={{ 
+                      padding: '10px 20px', 
+                      background: 'linear-gradient(to bottom, #4a7eba, #3a6ea8)', 
+                      color: 'white', 
+                      border: '1px solid #2a5a94', 
+                      borderRadius: '3px', 
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                  >List</button>
+                </div>
+              </div>
+
+              {/* Row 3: PRN checkbox, Dose, Unit, Route */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr 1fr', gap: '15px', marginBottom: '15px', alignItems: 'end' }}>
+                <div style={{ display: 'flex', alignItems: 'center', paddingBottom: '10px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={medPrn}
+                      onChange={(e) => setMedPrn(e.target.checked)}
+                      style={{ width: '18px', height: '18px', marginRight: '8px' }}
+                    />
+                    <span style={{ fontWeight: 'bold', color: '#1a3a5c' }}>PRN</span>
+                  </label>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 'bold', color: '#1a3a5c', marginBottom: '6px' }}>
+                    Dose<span style={{ color: '#cc0000' }}>*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    value={medDose}
+                    onChange={(e) => setMedDose(e.target.value)}
+                    placeholder="e.g. 10"
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px 15px', 
+                      border: medValidationErrors.dose ? '2px solid #cc0000' : '1px solid #7a9cc0', 
+                      borderRadius: '3px',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 'bold', color: '#1a3a5c', marginBottom: '6px' }}>
+                    Unit<span style={{ color: '#cc0000' }}>*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    value={medUnit}
+                    onChange={(e) => setMedUnit(e.target.value)}
+                    placeholder="e.g. mg, ml"
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px 15px', 
+                      border: medValidationErrors.unit ? '2px solid #cc0000' : '1px solid #7a9cc0', 
+                      borderRadius: '3px',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 'bold', color: '#1a3a5c', marginBottom: '6px' }}>
+                    Route<span style={{ color: '#cc0000' }}>*</span>
+                  </label>
+                  <input 
+                    type="text"
+                    value={medRoute}
+                    readOnly
+                    onClick={() => setShowMedRouteModal(true)}
+                    placeholder="Click to select..."
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px 15px', 
+                      border: medValidationErrors.route ? '2px solid #cc0000' : '1px solid #7a9cc0', 
+                      borderRadius: '3px',
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      backgroundColor: '#fff'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Row 4: Notes and Reason for ATP Violation */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 'bold', color: '#1a3a5c', marginBottom: '6px' }}>
+                    Notes
+                  </label>
+                  <input 
+                    type="text"
+                    value={medNotes}
+                    readOnly
+                    onClick={() => {
+                      setMedNotesTemp(medNotes)
+                      setShowMedNotesModal(true)
+                    }}
+                    placeholder="Click to add notes..."
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px 15px', 
+                      border: '1px solid #7a9cc0', 
+                      borderRadius: '3px',
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      backgroundColor: '#fff'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 'bold', color: '#999', marginBottom: '6px' }}>
+                    Reason for ATP Violation
+                  </label>
+                  <input 
+                    type="text"
+                    value={medAtpViolation}
+                    readOnly
+                    disabled
+                    placeholder=""
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px 15px', 
+                      border: '1px solid #ccc', 
+                      borderRadius: '3px',
+                      fontSize: '14px',
+                      backgroundColor: '#e8e8e8',
+                      color: '#999'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Row 5: Checkboxes */}
+              <div style={{ display: 'flex', gap: '30px', marginBottom: '15px', flexWrap: 'wrap' }}>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={medDrawnUpNotUsed}
+                    onChange={(e) => setMedDrawnUpNotUsed(e.target.checked)}
+                    style={{ width: '18px', height: '18px', marginRight: '8px' }}
+                  />
+                  <span style={{ color: '#1a3a5c' }}>Drawn up not used</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={medBrokenAmpoule}
+                    onChange={(e) => setMedBrokenAmpoule(e.target.checked)}
+                    style={{ width: '18px', height: '18px', marginRight: '8px' }}
+                  />
+                  <span style={{ color: '#1a3a5c' }}>Broken ampoule</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={medDiscarded}
+                    onChange={(e) => setMedDiscarded(e.target.checked)}
+                    style={{ width: '18px', height: '18px', marginRight: '8px' }}
+                  />
+                  <span style={{ color: '#1a3a5c' }}>Discarded</span>
+                </label>
+              </div>
+
+              {/* Row 6: Not possible */}
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', fontWeight: 'bold', color: '#1a3a5c', marginBottom: '6px' }}>
+                  Not possible
+                </label>
+                <input 
+                  type="text" 
+                  value={medNotPossibleReason}
+                  readOnly
+                  onClick={() => setShowMedNotPossibleModal(true)}
+                  placeholder="Click to select reason..."
+                  style={{ 
+                    width: '100%', 
+                    padding: '10px 15px', 
+                    border: '1px solid #7a9cc0', 
+                    borderRadius: '3px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    backgroundColor: '#fff'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div style={{ 
+              padding: '15px 20px', 
+              borderTop: '1px solid #7a9cc0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: '#a8bcd4'
+            }}>
+              <button 
+                onClick={() => {
+                  setShowMedEntryModal(false)
+                  setShowCompetencyModal(true)
+                }}
+                style={{ 
+                  padding: '10px 20px', 
+                  background: 'linear-gradient(to bottom, #4a7eba, #3a6ea8)', 
+                  color: 'white', 
+                  border: '1px solid #2a5a94', 
+                  borderRadius: '3px', 
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >Competency Tool</button>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button 
+                  onClick={() => {
+                    resetMedForm()
+                    setShowMedEntryModal(false)
+                  }}
+                  style={{ 
+                    padding: '10px 20px', 
+                    background: 'linear-gradient(to bottom, #888, #666)', 
+                    color: 'white', 
+                    border: '1px solid #555', 
+                    borderRadius: '3px', 
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                >Cancel and discard</button>
+                <button 
+                  onClick={handleMedSaveAndEnterSame}
+                  style={{ 
+                    padding: '10px 20px', 
+                    background: 'linear-gradient(to bottom, #4a7eba, #3a6ea8)', 
+                    color: 'white', 
+                    border: '1px solid #2a5a94', 
+                    borderRadius: '3px', 
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                >Save and enter same</button>
+                <button 
+                  onClick={handleMedSaveAndEnterDifferent}
+                  style={{ 
+                    padding: '10px 20px', 
+                    background: 'linear-gradient(to bottom, #4a7eba, #3a6ea8)', 
+                    color: 'white', 
+                    border: '1px solid #2a5a94', 
+                    borderRadius: '3px', 
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                >Save and enter different</button>
+                <button 
+                  onClick={handleMedSaveAndReturn}
+                  style={{ 
+                    padding: '10px 20px', 
+                    background: 'linear-gradient(to bottom, #5a8eca, #4a7eb8)', 
+                    color: 'white', 
+                    border: '1px solid #3a6ea4', 
+                    borderRadius: '3px', 
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                >Save and return</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Medication DateTime Picker */}
+      {showMedDateTimePicker && (
+        <div className="modal-overlay" onClick={() => setShowMedDateTimePicker(false)}>
+          <div className="picker-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="picker-header">Select Date and Time</div>
+            <div className="picker-content">
+              <div className="picker-row">
+                <div className="picker-field">
+                  <label>Day</label>
+                  <input type="number" value={medPickerDay} onChange={(e) => setMedPickerDay(parseInt(e.target.value) || 1)} min="1" max="31" className="picker-input" />
+                </div>
+                <div className="picker-field">
+                  <label>Month</label>
+                  <input type="number" value={medPickerMonth} onChange={(e) => setMedPickerMonth(parseInt(e.target.value) || 1)} min="1" max="12" className="picker-input" />
+                </div>
+                <div className="picker-field">
+                  <label>Year</label>
+                  <input type="number" value={medPickerYear} onChange={(e) => setMedPickerYear(parseInt(e.target.value) || 2025)} min="2020" max="2030" className="picker-input" />
+                </div>
+              </div>
+              <div className="picker-row">
+                <div className="picker-field">
+                  <label>Hour</label>
+                  <input type="number" value={medPickerHour} onChange={(e) => setMedPickerHour(parseInt(e.target.value) || 0)} min="0" max="23" className="picker-input" />
+                </div>
+                <div className="picker-field">
+                  <label>Minute</label>
+                  <input type="number" value={medPickerMinute} onChange={(e) => setMedPickerMinute(parseInt(e.target.value) || 0)} min="0" max="59" className="picker-input" />
+                </div>
+              </div>
+            </div>
+            <div className="picker-footer">
+              <button className="picker-footer-btn cancel" onClick={() => setShowMedDateTimePicker(false)}>Cancel</button>
+              <button className="picker-footer-btn ok" onClick={handleSetMedDateTime}>OK</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Medication Route Selection Modal */}
+      {showMedRouteModal && (
+        <div className="modal-overlay" onClick={() => setShowMedRouteModal(false)}>
+          <div className="route-modal" onClick={(e) => e.stopPropagation()} style={{
+            backgroundColor: '#b8cce4',
+            borderRadius: '5px',
+            minWidth: '300px',
+            maxWidth: '400px'
+          }}>
+            <div style={{
+              background: 'linear-gradient(to bottom, #c63031, #a52829)',
+              color: 'white',
+              padding: '8px 15px',
+              fontWeight: 'bold',
+              fontSize: '14px'
+            }}>
+              Route
+            </div>
+            <div style={{ padding: '10px', maxHeight: '400px', overflowY: 'auto' }}>
+              {routesList.map((routeOption, index) => (
+                <div 
+                  key={index}
+                  onClick={() => {
+                    setMedRoute(routeOption)
+                    setShowMedRouteModal(false)
+                  }}
+                  style={{
+                    padding: '10px 15px',
+                    cursor: 'pointer',
+                    backgroundColor: index % 2 === 0 ? '#c8d8e8' : '#b8cce4',
+                    borderBottom: '1px solid #7a9cc0',
+                    color: '#1a3a5c'
+                  }}
+                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#a8bcd4')}
+                  onMouseOut={(e) => (e.currentTarget.style.backgroundColor = index % 2 === 0 ? '#c8d8e8' : '#b8cce4')}
+                >
+                  {routeOption}
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: '10px', borderTop: '1px solid #7a9cc0', textAlign: 'right' }}>
+              <button 
+                onClick={() => setShowMedRouteModal(false)}
+                style={{ 
+                  padding: '8px 20px', 
+                  background: 'linear-gradient(to bottom, #888, #666)', 
+                  color: 'white', 
+                  border: '1px solid #555', 
+                  borderRadius: '3px', 
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Medication Notes Modal */}
+      {showMedNotesModal && (
+        <div className="modal-overlay" onClick={() => setShowMedNotesModal(false)}>
+          <div className="vital-detail-modal" onClick={(e) => e.stopPropagation()} style={{
+            backgroundColor: '#b8cce4',
+            borderRadius: '5px',
+            minWidth: '500px',
+            maxWidth: '600px'
+          }}>
+            <div style={{
+              background: 'linear-gradient(to bottom, #c63031, #a52829)',
+              color: 'white',
+              padding: '8px 15px',
+              fontWeight: 'bold',
+              fontSize: '14px'
+            }}>
+              Notes
+            </div>
+            <div style={{ padding: '20px' }}>
+              <textarea
+                value={medNotesTemp}
+                onChange={(e) => setMedNotesTemp(e.target.value)}
+                placeholder="Enter notes..."
+                autoFocus
+                style={{
+                  width: '100%',
+                  minHeight: '200px',
+                  padding: '12px',
+                  fontSize: '14px',
+                  border: '1px solid #7a9cc0',
+                  borderRadius: '4px',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
+            <div style={{ padding: '10px 20px', borderTop: '1px solid #7a9cc0', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button 
+                onClick={() => setShowMedNotesModal(false)}
+                style={{ 
+                  padding: '8px 20px', 
+                  background: 'linear-gradient(to bottom, #888, #666)', 
+                  color: 'white', 
+                  border: '1px solid #555', 
+                  borderRadius: '3px', 
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >Cancel</button>
+              <button 
+                onClick={() => {
+                  setMedNotes(medNotesTemp)
+                  setShowMedNotesModal(false)
+                }}
+                style={{ 
+                  padding: '8px 20px', 
+                  background: 'linear-gradient(to bottom, #4a7eba, #3a6ea8)', 
+                  color: 'white', 
+                  border: '1px solid #2a5a94', 
+                  borderRadius: '3px', 
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >OK</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Medication Not Possible Modal */}
+      {showMedNotPossibleModal && (
+        <div className="modal-overlay" onClick={() => setShowMedNotPossibleModal(false)}>
+          <div className="route-modal" onClick={(e) => e.stopPropagation()} style={{
+            backgroundColor: '#b8cce4',
+            borderRadius: '5px',
+            minWidth: '350px',
+            maxWidth: '450px'
+          }}>
+            <div style={{
+              background: 'linear-gradient(to bottom, #c63031, #a52829)',
+              color: 'white',
+              padding: '8px 15px',
+              fontWeight: 'bold',
+              fontSize: '14px'
+            }}>
+              Not Possible - Select Reason
+            </div>
+            <div style={{ padding: '10px', maxHeight: '400px', overflowY: 'auto' }}>
+              {['Patient refused', 'Not indicated', 'Contraindicated', 'Not available', 'Time critical', 'Other'].map((reason, index) => (
+                <div 
+                  key={index}
+                  onClick={() => {
+                    setMedNotPossibleReason(reason)
+                    setShowMedNotPossibleModal(false)
+                  }}
+                  style={{
+                    padding: '10px 15px',
+                    cursor: 'pointer',
+                    backgroundColor: index % 2 === 0 ? '#c8d8e8' : '#b8cce4',
+                    borderBottom: '1px solid #7a9cc0',
+                    color: '#1a3a5c'
+                  }}
+                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#a8bcd4')}
+                  onMouseOut={(e) => (e.currentTarget.style.backgroundColor = index % 2 === 0 ? '#c8d8e8' : '#b8cce4')}
+                >
+                  {reason}
+                </div>
+              ))}
+              <div 
+                onClick={() => {
+                  setMedNotPossibleReason('')
+                  setShowMedNotPossibleModal(false)
+                }}
+                style={{
+                  padding: '10px 15px',
+                  cursor: 'pointer',
+                  backgroundColor: '#ddd',
+                  borderBottom: '1px solid #7a9cc0',
+                  color: '#666',
+                  fontStyle: 'italic'
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#ccc')}
+                onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#ddd')}
+              >
+                Clear selection
+              </div>
+            </div>
+            <div style={{ padding: '10px', borderTop: '1px solid #7a9cc0', textAlign: 'right' }}>
+              <button 
+                onClick={() => setShowMedNotPossibleModal(false)}
+                style={{ 
+                  padding: '8px 20px', 
+                  background: 'linear-gradient(to bottom, #888, #666)', 
+                  color: 'white', 
+                  border: '1px solid #555', 
+                  borderRadius: '3px', 
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Intervention Entry Modal */}
+      {showInterventionEntryModal && (
+        <div className="modal-overlay" onClick={() => setShowInterventionEntryModal(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            backgroundColor: '#b8cce4',
+            borderRadius: '5px',
+            width: '95%',
+            maxWidth: '950px',
+            maxHeight: '90vh',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {/* Header */}
+            <div style={{
+              background: 'linear-gradient(to bottom, #c63031, #a52829)',
+              color: 'white',
+              padding: '8px 15px',
+              fontWeight: 'bold',
+              fontSize: '14px'
+            }}>
+              Add Intervention
+            </div>
+
+            {/* Form Content */}
+            <div style={{ padding: '20px', flex: 1, overflowY: 'auto' }}>
+              {/* Time and Performed By */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 'bold', color: '#1a3a5c', marginBottom: '6px' }}>
+                    Time<span style={{ color: '#cc0000' }}>*</span>
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input 
+                      type="text" 
+                      value={intTime}
+                      onClick={openIntDateTimePicker}
+                      readOnly
+                      style={{ 
+                        flex: 1, 
+                        padding: '10px 15px', 
+                        border: intValidationErrors.time ? '2px solid #cc0000' : '1px solid #7a9cc0', 
+                        borderRadius: '3px', 
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    />
+                    <button onClick={setIntNow} style={{ 
+                      padding: '10px 20px', 
+                      background: 'linear-gradient(to bottom, #4a7eba, #3a6ea8)', 
+                      color: 'white', 
+                      border: '1px solid #2a5a94', 
+                      borderRadius: '3px', 
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}>Now</button>
+                  </div>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 'bold', color: '#1a3a5c', marginBottom: '6px' }}>
+                    Performed by<span style={{ color: '#cc0000' }}>*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    value={intPerformedBy}
+                    onChange={(e) => setIntPerformedBy(e.target.value)}
+                    placeholder="Roblox username"
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px 15px', 
+                      border: intValidationErrors.performedBy ? '2px solid #cc0000' : '1px solid #7a9cc0', 
+                      borderRadius: '3px',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Airway Section */}
+              <div style={{ marginBottom: '20px', backgroundColor: '#c8d8e8', padding: '15px', borderRadius: '5px' }}>
+                <div style={{ fontWeight: 'bold', color: '#1a3a5c', marginBottom: '12px', fontSize: '15px' }}>Airway</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>Airway</label>
+                    <select value={intAirway} onChange={(e) => setIntAirway(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}>
+                      <option value="">Select...</option>
+                      {airwayOptions.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>Ventilation</label>
+                    <select value={intVentilation} onChange={(e) => setIntVentilation(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}>
+                      <option value="">Select...</option>
+                      {ventilationOptions.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>PEEP</label>
+                    <input 
+                      type="text" 
+                      value={intPeep}
+                      onChange={(e) => setIntPeep(e.target.value)}
+                      placeholder="cmH2O"
+                      style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>CPAP</label>
+                    <input 
+                      type="text" 
+                      value={intCpap}
+                      onChange={(e) => setIntCpap(e.target.value)}
+                      placeholder="cmH2O"
+                      style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>RSI</label>
+                    <select value={intRsi} onChange={(e) => setIntRsi(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}>
+                      <option value="">Select...</option>
+                      <option value="Yes">Yes</option>
+                      <option value="No">No</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cardiac Section */}
+              <div style={{ marginBottom: '20px', backgroundColor: '#c8d8e8', padding: '15px', borderRadius: '5px' }}>
+                <div style={{ fontWeight: 'bold', color: '#1a3a5c', marginBottom: '12px', fontSize: '15px' }}>Cardiac</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>CPR</label>
+                    <select value={intCpr} onChange={(e) => setIntCpr(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}>
+                      <option value="">Select...</option>
+                      <option value="Commenced">Commenced</option>
+                      <option value="Continued">Continued</option>
+                      <option value="ROSC">ROSC</option>
+                      <option value="Ceased">Ceased</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>Defibrillation</label>
+                    <input 
+                      type="text" 
+                      value={intDefibrillation}
+                      onChange={(e) => setIntDefibrillation(e.target.value)}
+                      placeholder="Joules"
+                      style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>Cardioversion</label>
+                    <input 
+                      type="text" 
+                      value={intCardioversion}
+                      onChange={(e) => setIntCardioversion(e.target.value)}
+                      placeholder="Joules"
+                      style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>Pacing</label>
+                    <input 
+                      type="text" 
+                      value={intPacing}
+                      onChange={(e) => setIntPacing(e.target.value)}
+                      placeholder="mA/BPM"
+                      style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>Valsalva</label>
+                    <select value={intValsalva} onChange={(e) => setIntValsalva(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}>
+                      <option value="">Select...</option>
+                      <option value="Standard">Standard</option>
+                      <option value="Modified">Modified</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Invasive Section */}
+              <div style={{ marginBottom: '20px', backgroundColor: '#c8d8e8', padding: '15px', borderRadius: '5px' }}>
+                <div style={{ fontWeight: 'bold', color: '#1a3a5c', marginBottom: '12px', fontSize: '15px' }}>Invasive</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>IV Cannulation</label>
+                    <select value={intIvCannulation} onChange={(e) => setIntIvCannulation(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}>
+                      <option value="">Select...</option>
+                      <option value="14G">14G</option>
+                      <option value="16G">16G</option>
+                      <option value="18G">18G</option>
+                      <option value="20G">20G</option>
+                      <option value="22G">22G</option>
+                      <option value="Failed">Failed</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>IO Access</label>
+                    <select value={intIoAccess} onChange={(e) => setIntIoAccess(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}>
+                      <option value="">Select...</option>
+                      <option value="Tibial">Tibial</option>
+                      <option value="Humeral">Humeral</option>
+                      <option value="Sternal">Sternal</option>
+                      <option value="Failed">Failed</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>Chest Decompression</label>
+                    <select value={intChestDecompression} onChange={(e) => setIntChestDecompression(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}>
+                      <option value="">Select...</option>
+                      <option value="Needle - Left">Needle - Left</option>
+                      <option value="Needle - Right">Needle - Right</option>
+                      <option value="Finger - Left">Finger - Left</option>
+                      <option value="Finger - Right">Finger - Right</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>Stomach Decompression</label>
+                    <select value={intStomachDecompression} onChange={(e) => setIntStomachDecompression(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}>
+                      <option value="">Select...</option>
+                      <option value="NG Tube">NG Tube</option>
+                      <option value="OG Tube">OG Tube</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>Catheter Troubleshooting</label>
+                    <select value={intCatheterTroubleshooting} onChange={(e) => setIntCatheterTroubleshooting(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}>
+                      <option value="">Select...</option>
+                      <option value="Flushed">Flushed</option>
+                      <option value="Replaced">Replaced</option>
+                      <option value="Removed">Removed</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>Nerve Block</label>
+                    <input 
+                      type="text" 
+                      value={intNerveBlock}
+                      onChange={(e) => setIntNerveBlock(e.target.value)}
+                      placeholder="Details..."
+                      style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Other Section */}
+              <div style={{ marginBottom: '20px', backgroundColor: '#c8d8e8', padding: '15px', borderRadius: '5px' }}>
+                <div style={{ fontWeight: 'bold', color: '#1a3a5c', marginBottom: '12px', fontSize: '15px' }}>Other</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>Positioning</label>
+                    <select value={intPositioning} onChange={(e) => setIntPositioning(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}>
+                      <option value="">Select...</option>
+                      <option value="Recovery Position">Recovery Position</option>
+                      <option value="Supine">Supine</option>
+                      <option value="Fowlers">Fowlers</option>
+                      <option value="Left Lateral">Left Lateral</option>
+                      <option value="Trendelenburg">Trendelenburg</option>
+                      <option value="Prone">Prone</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>Splint/Dressing/Tag</label>
+                    <input 
+                      type="text" 
+                      value={intSplintDressingTag}
+                      onChange={(e) => setIntSplintDressingTag(e.target.value)}
+                      placeholder="Details..."
+                      style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>Nasal Tamponade</label>
+                    <select value={intNasalTamponade} onChange={(e) => setIntNasalTamponade(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}>
+                      <option value="">Select...</option>
+                      <option value="Rapid Rhino">Rapid Rhino</option>
+                      <option value="Packing">Packing</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>Tourniquet</label>
+                    <select value={intTourniquet} onChange={(e) => setIntTourniquet(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}>
+                      <option value="">Select...</option>
+                      <option value="Left Arm">Left Arm</option>
+                      <option value="Right Arm">Right Arm</option>
+                      <option value="Left Leg">Left Leg</option>
+                      <option value="Right Leg">Right Leg</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>Limb Reduction</label>
+                    <input 
+                      type="text" 
+                      value={intLimbReduction}
+                      onChange={(e) => setIntLimbReduction(e.target.value)}
+                      placeholder="Details..."
+                      style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>Epley Manoeuvre</label>
+                    <select value={intEpleyManoeuvre} onChange={(e) => setIntEpleyManoeuvre(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', fontSize: '13px' }}>
+                      <option value="">Select...</option>
+                      <option value="Left">Left</option>
+                      <option value="Right">Right</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', color: '#1a3a5c' }}>Other Intervention/Notes</label>
+                  <textarea 
+                    value={intOtherNotes}
+                    onChange={(e) => setIntOtherNotes(e.target.value)}
+                    placeholder="Any other intervention notes..."
+                    style={{ width: '100%', padding: '8px', border: '1px solid #7a9cc0', borderRadius: '3px', minHeight: '60px', resize: 'vertical', fontSize: '13px' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div style={{ 
+              padding: '15px 20px', 
+              borderTop: '1px solid #7a9cc0',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '10px',
+              backgroundColor: '#a8bcd4'
+            }}>
+              <button 
+                onClick={() => {
+                  resetInterventionForm()
+                  setShowInterventionEntryModal(false)
+                }}
+                style={{ 
+                  padding: '10px 20px', 
+                  background: 'linear-gradient(to bottom, #888, #666)', 
+                  color: 'white', 
+                  border: '1px solid #555', 
+                  borderRadius: '3px', 
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >Cancel and discard</button>
+              <button 
+                onClick={handleIntSaveAndEnterAnother}
+                style={{ 
+                  padding: '10px 20px', 
+                  background: 'linear-gradient(to bottom, #4a7eba, #3a6ea8)', 
+                  color: 'white', 
+                  border: '1px solid #2a5a94', 
+                  borderRadius: '3px', 
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >Save and enter another</button>
+              <button 
+                onClick={handleIntSaveAndReturn}
+                style={{ 
+                  padding: '10px 20px', 
+                  background: 'linear-gradient(to bottom, #5a8eca, #4a7eb8)', 
+                  color: 'white', 
+                  border: '1px solid #3a6ea4', 
+                  borderRadius: '3px', 
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >Save and return to Vital Obs/Treat</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Intervention DateTime Picker */}
+      {showInterventionDateTimePicker && (
+        <div className="modal-overlay" onClick={() => setShowInterventionDateTimePicker(false)}>
+          <div className="picker-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="picker-header">Select Date and Time</div>
+            <div className="picker-content">
+              <div className="picker-row">
+                <div className="picker-field">
+                  <label>Day</label>
+                  <input type="number" value={intPickerDay} onChange={(e) => setIntPickerDay(parseInt(e.target.value) || 1)} min="1" max="31" className="picker-input" />
+                </div>
+                <div className="picker-field">
+                  <label>Month</label>
+                  <input type="number" value={intPickerMonth} onChange={(e) => setIntPickerMonth(parseInt(e.target.value) || 1)} min="1" max="12" className="picker-input" />
+                </div>
+                <div className="picker-field">
+                  <label>Year</label>
+                  <input type="number" value={intPickerYear} onChange={(e) => setIntPickerYear(parseInt(e.target.value) || 2025)} min="2020" max="2030" className="picker-input" />
+                </div>
+              </div>
+              <div className="picker-row">
+                <div className="picker-field">
+                  <label>Hour</label>
+                  <input type="number" value={intPickerHour} onChange={(e) => setIntPickerHour(parseInt(e.target.value) || 0)} min="0" max="23" className="picker-input" />
+                </div>
+                <div className="picker-field">
+                  <label>Minute</label>
+                  <input type="number" value={intPickerMinute} onChange={(e) => setIntPickerMinute(parseInt(e.target.value) || 0)} min="0" max="59" className="picker-input" />
+                </div>
+              </div>
+            </div>
+            <div className="picker-footer">
+              <button className="picker-footer-btn cancel" onClick={() => setShowInterventionDateTimePicker(false)}>Cancel</button>
+              <button className="picker-footer-btn ok" onClick={handleSetIntDateTime}>OK</button>
             </div>
           </div>
         </div>
@@ -3936,7 +6044,8 @@ export default function VitalObsPage() {
                     display: 'grid',
                     gridTemplateColumns: '1fr 1.5fr 1.5fr 1.5fr 1fr 0.5fr',
                     backgroundColor: index % 2 === 0 ? '#d4e0ed' : '#c4d4e4',
-                    fontSize: '12px'
+                    fontSize: '12px',
+                    color: '#1a202c'
                   }}>
                     <div style={{ padding: '8px 10px', borderRight: '1px solid #999' }}>{entry.time}</div>
                     <div style={{ padding: '8px 10px', borderRight: '1px solid #999' }}>{entry.understandInfo === 'yes' ? 'Yes' : 'No'}</div>
@@ -3967,7 +6076,7 @@ export default function VitalObsPage() {
                     padding: '20px',
                     textAlign: 'center',
                     backgroundColor: '#d4e0ed',
-                    color: '#666',
+                    color: '#4a5568',
                     fontStyle: 'italic'
                   }}>
                     No competency assessments recorded
@@ -4098,7 +6207,19 @@ export default function VitalObsPage() {
       <ConfirmationModal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
-        onConfirm={confirmSubmitEPRF}
+          onConfirm={() => confirmSubmitEPRF(pdfOption)}
+        >
+          <div className="mt-4">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={pdfOption}
+                onChange={e => setPdfOption(e.target.checked)}
+              />
+              Download PDF after submit
+            </label>
+          </div>
+        </ConfirmationModal>
         title="Submit ePRF"
         message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database\n• Download the PDF to your device`}
         confirmText="Yes, Submit ePRF"
@@ -4159,6 +6280,17 @@ export default function VitalObsPage() {
         incidentId={incidentId}
         currentUserPermission={userPermission || 'view'}
       />
+      {/* Chat Widget */}
+      {currentUser && (
+        <ChatWidget
+          incidentId={incidentId}
+          discordId={currentUser.discordId}
+          callsign={currentUser.callsign}
+          patientLetter={patientLetter}
+          onUnreadChange={setChatUnreadCount}
+          isOpen={showChat}
+        />
+      )}
     </div>
   )
 }

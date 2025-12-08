@@ -57,7 +57,6 @@ export default function NotificationCenter({ discordId, callsign }: Notification
       undefined,
       (event) => {
         if (event.type === 'notification') {
-          // Add new notification to the top
           setNotifications(prev => [event.payload, ...prev]);
           setUnreadCount(prev => prev + 1);
         }
@@ -87,7 +86,6 @@ export default function NotificationCenter({ discordId, callsign }: Notification
   }, []);
 
   const handleNotificationClick = async (notification: ExtendedNotification) => {
-    // Mark as read
     if (!notification.isRead && notification.id) {
       await markExtendedNotificationRead(discordId, notification.id);
       setNotifications(prev => 
@@ -96,7 +94,6 @@ export default function NotificationCenter({ discordId, callsign }: Notification
       setUnreadCount(prev => Math.max(0, prev - 1));
     }
 
-    // Navigate if link provided
     if (notification.link) {
       router.push(notification.link);
       setIsOpen(false);
@@ -117,10 +114,9 @@ export default function NotificationCenter({ discordId, callsign }: Notification
 
   const handleDeleteNotification = async (e: React.MouseEvent, notificationId: number) => {
     e.stopPropagation();
+    const deletedNotif = notifications.find(n => n.id === notificationId);
     await deleteExtendedNotification(discordId, notificationId);
     setNotifications(prev => prev.filter(n => n.id !== notificationId));
-    // Recalculate unread count
-    const deletedNotif = notifications.find(n => n.id === notificationId);
     if (deletedNotif && !deletedNotif.isRead) {
       setUnreadCount(prev => Math.max(0, prev - 1));
     }
@@ -136,22 +132,14 @@ export default function NotificationCenter({ discordId, callsign }: Notification
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'mention':
-        return '📢';
-      case 'access_request':
-        return '🔑';
-      case 'collaborator_added':
-        return '👥';
-      case 'record_updated':
-        return '📝';
-      case 'broadcast':
-        return '📣';
-      case 'kick':
-        return '🚫';
-      case 'announcement':
-        return '📌';
-      default:
-        return '🔔';
+      case 'mention': return '📢';
+      case 'access_request': return '🔑';
+      case 'collaborator_added': return '👥';
+      case 'record_updated': return '📝';
+      case 'broadcast': return '📣';
+      case 'kick': return '🚫';
+      case 'announcement': return '📌';
+      default: return '🔔';
     }
   };
 
@@ -171,156 +159,374 @@ export default function NotificationCenter({ discordId, callsign }: Notification
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
-      {/* Bell Icon Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
-        aria-label="Notifications"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-6 w-6 text-slate-300"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
+    <>
+      <div className="notification-wrapper" ref={dropdownRef}>
+        {/* Bell Icon Button */}
+        <button
+          className="notification-bell"
+          onClick={() => setIsOpen(!isOpen)}
+          title="Notifications"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-          />
-        </svg>
-        
-        {/* Unread Badge */}
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1">
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
-        )}
-      </button>
+          🔔
+          {unreadCount > 0 && (
+            <span className="notification-badge">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
 
-      {/* Dropdown */}
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 max-h-[80vh] bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
-          {/* Header */}
-          <div className="p-4 border-b border-slate-700">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">Notifications</h3>
-              <div className="flex gap-2">
+        {/* Popup Modal */}
+        {isOpen && (
+          <div className="notification-popup">
+            <div className="notification-header">
+              <span>Notifications</span>
+              <button className="close-btn" onClick={() => setIsOpen(false)}>×</button>
+            </div>
+            
+            <div className="notification-toolbar">
+              <div className="filter-tabs">
                 <button
+                  className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
+                  onClick={() => setFilter('all')}
+                >
+                  All
+                </button>
+                <button
+                  className={`filter-tab ${filter === 'unread' ? 'active' : ''}`}
+                  onClick={() => setFilter('unread')}
+                >
+                  Unread ({unreadCount})
+                </button>
+              </div>
+              <div className="toolbar-actions">
+                <button
+                  className="toolbar-btn"
                   onClick={handleMarkAllRead}
-                  className="text-xs text-blue-400 hover:text-blue-300"
                   disabled={unreadCount === 0}
                 >
                   Mark all read
                 </button>
                 <button
+                  className="toolbar-btn danger"
                   onClick={handleClearAll}
-                  className="text-xs text-red-400 hover:text-red-300"
                   disabled={notifications.length === 0}
                 >
                   Clear all
                 </button>
               </div>
             </div>
-            
-            {/* Filter Tabs */}
-            <div className="flex gap-2 mt-3">
-              <button
-                onClick={() => setFilter('all')}
-                className={`px-3 py-1 text-sm rounded-lg transition-colors ${
-                  filter === 'all' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setFilter('unread')}
-                className={`px-3 py-1 text-sm rounded-lg transition-colors ${
-                  filter === 'unread' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                }`}
-              >
-                Unread ({unreadCount})
-              </button>
-            </div>
-          </div>
 
-          {/* Notification List */}
-          <div className="max-h-96 overflow-y-auto">
-            {loading ? (
-              <div className="p-8 text-center text-slate-400">
-                <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto"></div>
-                <p className="mt-2">Loading...</p>
-              </div>
-            ) : notifications.length === 0 ? (
-              <div className="p-8 text-center text-slate-400">
-                <p className="text-4xl mb-2">🔔</p>
-                <p>No notifications</p>
-              </div>
-            ) : (
-              notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  onClick={() => handleNotificationClick(notification)}
-                  className={`p-4 border-b border-slate-700/50 cursor-pointer hover:bg-slate-700/30 transition-colors ${
-                    !notification.isRead ? 'bg-slate-700/20' : ''
-                  }`}
-                >
-                  <div className="flex gap-3">
-                    {/* Icon */}
-                    <div className="text-2xl flex-shrink-0">
-                      {getNotificationIcon(notification.type)}
-                    </div>
-                    
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
+            <div className="notification-list">
+              {loading ? (
+                <div className="empty-state">
+                  <div className="loading-spinner"></div>
+                  <p>Loading...</p>
+                </div>
+              ) : notifications.length === 0 ? (
+                <div className="empty-state">
+                  <p className="empty-icon">🔔</p>
+                  <p>No notifications</p>
+                </div>
+              ) : (
+                notifications.map((notification) => (
+                  <div
+                    key={notification.id}
+                    className={`notification-item ${!notification.isRead ? 'unread' : ''}`}
+                    onClick={() => handleNotificationClick(notification)}
+                  >
+                    <span className="notif-icon">{getNotificationIcon(notification.type)}</span>
+                    <div className="notif-content">
                       {notification.title && (
-                        <p className={`font-medium ${!notification.isRead ? 'text-white' : 'text-slate-300'}`}>
-                          {notification.title}
-                        </p>
+                        <p className="notif-title">{notification.title}</p>
                       )}
-                      <p className={`text-sm ${!notification.isRead ? 'text-slate-200' : 'text-slate-400'}`}>
-                        {notification.message}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
+                      <p className="notif-message">{notification.message}</p>
+                      <div className="notif-meta">
                         {notification.fromCallsign && (
-                          <span className="text-xs text-slate-500">
-                            from {notification.fromCallsign}
-                          </span>
+                          <span>from {notification.fromCallsign}</span>
                         )}
-                        <span className="text-xs text-slate-500">
-                          {notification.createdAt && formatTimeAgo(notification.createdAt)}
-                        </span>
+                        {notification.createdAt && (
+                          <span>{formatTimeAgo(notification.createdAt)}</span>
+                        )}
                       </div>
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex-shrink-0 flex items-start gap-2">
-                      {!notification.isRead && (
-                        <span className="w-2 h-2 bg-blue-500 rounded-full mt-2"></span>
-                      )}
+                    <div className="notif-actions">
+                      {!notification.isRead && <span className="unread-dot"></span>}
                       <button
+                        className="delete-btn"
                         onClick={(e) => notification.id && handleDeleteNotification(e, notification.id)}
-                        className="text-slate-500 hover:text-red-400 p-1"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        ×
                       </button>
                     </div>
                   </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+
+      <style jsx>{`
+        .notification-wrapper {
+          position: relative;
+          display: inline-block;
+        }
+
+        .notification-bell {
+          background: none;
+          border: none;
+          font-size: 22px;
+          cursor: pointer;
+          padding: 6px 10px;
+          position: relative;
+          filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+        }
+
+        .notification-bell:hover {
+          transform: scale(1.1);
+        }
+
+        .notification-badge {
+          position: absolute;
+          top: 0;
+          right: 0;
+          background: #dc3545;
+          color: white;
+          font-size: 10px;
+          font-weight: bold;
+          min-width: 18px;
+          height: 18px;
+          border-radius: 9px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 4px;
+          font-family: Arial, sans-serif;
+        }
+
+        .notification-popup {
+          position: absolute;
+          right: 0;
+          top: 100%;
+          margin-top: 8px;
+          width: 380px;
+          max-height: 500px;
+          background: linear-gradient(to bottom, #b8d4ea 0%, #a0c4e0 100%);
+          border: 3px solid #4a6d8c;
+          border-radius: 8px;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+          z-index: 1000;
+          overflow: hidden;
+        }
+
+        .notification-header {
+          background: linear-gradient(to bottom, #4a6d8c 0%, #3d5a75 100%);
+          color: white;
+          padding: 10px 15px;
+          font-size: 16px;
+          font-weight: bold;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+          border-bottom: 2px solid #2d4a5f;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .close-btn {
+          background: none;
+          border: none;
+          color: white;
+          font-size: 22px;
+          cursor: pointer;
+          line-height: 1;
+          padding: 0 5px;
+        }
+
+        .close-btn:hover {
+          opacity: 0.8;
+        }
+
+        .notification-toolbar {
+          padding: 10px 12px;
+          background: rgba(255,255,255,0.4);
+          border-bottom: 1px solid #5a7a9a;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .filter-tabs {
+          display: flex;
+          gap: 6px;
+        }
+
+        .filter-tab {
+          padding: 5px 12px;
+          font-size: 12px;
+          font-weight: bold;
+          border: 2px solid #5a7a9a;
+          border-radius: 4px;
+          background: white;
+          color: #2d4a5f;
+          cursor: pointer;
+        }
+
+        .filter-tab:hover {
+          background: #e8f0f8;
+        }
+
+        .filter-tab.active {
+          background: #5a7a9a;
+          color: white;
+        }
+
+        .toolbar-actions {
+          display: flex;
+          gap: 8px;
+        }
+
+        .toolbar-btn {
+          background: none;
+          border: none;
+          color: #1a3a5c;
+          font-size: 11px;
+          font-weight: bold;
+          cursor: pointer;
+          text-decoration: underline;
+        }
+
+        .toolbar-btn:hover {
+          color: #0a2a4c;
+        }
+
+        .toolbar-btn:disabled {
+          color: #8a9aaa;
+          cursor: not-allowed;
+        }
+
+        .toolbar-btn.danger {
+          color: #c44;
+        }
+
+        .toolbar-btn.danger:hover {
+          color: #a22;
+        }
+
+        .notification-list {
+          max-height: 350px;
+          overflow-y: auto;
+          background: white;
+        }
+
+        .empty-state {
+          padding: 40px 20px;
+          text-align: center;
+          color: #5a7a9a;
+        }
+
+        .empty-icon {
+          font-size: 36px;
+          margin-bottom: 10px;
+        }
+
+        .loading-spinner {
+          width: 30px;
+          height: 30px;
+          border: 3px solid #5a7a9a;
+          border-top-color: transparent;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+          margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
+        .notification-item {
+          display: flex;
+          gap: 10px;
+          padding: 12px;
+          border-bottom: 1px solid #e0e8f0;
+          cursor: pointer;
+          transition: background 0.15s;
+        }
+
+        .notification-item:hover {
+          background: #e8f0f8;
+        }
+
+        .notification-item.unread {
+          background: #f0f8ff;
+        }
+
+        .notification-item.unread:hover {
+          background: #e0f0ff;
+        }
+
+        .notif-icon {
+          font-size: 22px;
+          flex-shrink: 0;
+        }
+
+        .notif-content {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .notif-title {
+          font-weight: bold;
+          color: #1a3a5c;
+          margin: 0 0 3px 0;
+          font-size: 13px;
+        }
+
+        .notif-message {
+          color: #3a5a7c;
+          margin: 0;
+          font-size: 12px;
+          line-height: 1.4;
+        }
+
+        .notif-meta {
+          display: flex;
+          gap: 10px;
+          margin-top: 5px;
+          font-size: 11px;
+          color: #7a9ab8;
+        }
+
+        .notif-actions {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 5px;
+          flex-shrink: 0;
+        }
+
+        .unread-dot {
+          width: 8px;
+          height: 8px;
+          background: #4a8df0;
+          border-radius: 50%;
+        }
+
+        .delete-btn {
+          background: none;
+          border: none;
+          color: #aab;
+          font-size: 18px;
+          cursor: pointer;
+          padding: 2px 5px;
+          line-height: 1;
+        }
+
+        .delete-btn:hover {
+          color: #c44;
+        }
+      `}</style>
+    </>
   );
 }

@@ -11,11 +11,23 @@ import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
 import ConnectionStatus from '../components/ConnectionStatus'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
+import ChatWidget from '../components/ChatWidget'
 import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
 export default function DispositionPage() {
+    // ...existing code...
+    const [showChat, setShowChat] = useState(false);
+    const [chatUnreadCount, setChatUnreadCount] = useState(0);
+    const [currentUser, setCurrentUser] = useState<{ discordId: string; callsign: string } | null>(null);
+
+    useEffect(() => {
+      const user = getCurrentUser();
+      if (user) {
+        setCurrentUser({ discordId: user.discordId, callsign: user.callsign });
+      }
+    }, []);
   const searchParams = useSearchParams()
   const router = useRouter()
   const incidentId = searchParams?.get('id') || ''
@@ -58,7 +70,7 @@ export default function DispositionPage() {
 
   const [formData, setFormData] = useState({
     disposition: '',
-    noTreatmentReason: 'Transport not indicated',
+    noTreatmentReason: '',
     noTransportReason: '',
     finalPatientStatus: '',
     dispositionNotes: '',
@@ -703,6 +715,24 @@ export default function DispositionPage() {
       <div className="eprf-nav">
         <button className="nav-btn" onClick={handleHome}>Home</button>
         <button className="nav-btn" onClick={() => setShowPatientManagementModal(true)}>Manage Patients</button>
+        <button className="nav-btn" onClick={() => setShowValidationErrorModal(true)}>History</button>
+        <button className="nav-btn chat-btn" onClick={() => setShowChat(!showChat)} title="Chat" style={{ position: 'relative' }}>
+          Chat
+          {chatUnreadCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: 2,
+              left: 2,
+              width: 12,
+              height: 12,
+              background: 'red',
+              borderRadius: '50%',
+              display: 'inline-block',
+              border: '2px solid white',
+              zIndex: 2
+            }}></span>
+          )}
+        </button>
         {canManageCollaborators(userPermission) && (
           <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
         )}
@@ -793,6 +823,7 @@ export default function DispositionPage() {
                   value={formData.noTreatmentReason}
                   onChange={(e) => handleInputChange('noTreatmentReason', e.target.value)}
                 >
+                  <option value=""></option>
                   {noTreatmentReasons.map((reason) => (
                     <option key={reason} value={reason}>{reason}</option>
                   ))}
@@ -936,40 +967,33 @@ export default function DispositionPage() {
             </div>
 
             {/* Copy to GP */}
-            <div className="gp-section">
-              <div className="gp-row">
-                <div className={`gp-options ${hasFieldError('copyToGP') ? 'validation-error-radio' : ''}`}>
-                  <span className={`gp-title required ${hasFieldError('copyToGP') ? 'validation-error-label' : ''}`}>Copy to GP?</span>
-                  <label className="gp-option">
-                    <input
-                      type="radio"
-                      name="copyToGP"
-                      value="Not this time"
-                      checked={formData.copyToGP === 'Not this time'}
-                      onChange={(e) => handleRadioChange('copyToGP', e.target.value)}
-                    />
-                    Not this time
-                  </label>
-                  <label className="gp-option">
-                    <input
-                      type="radio"
-                      name="copyToGP"
-                      value="Yes"
-                      checked={formData.copyToGP === 'Yes'}
-                      onChange={(e) => handleRadioChange('copyToGP', e.target.value)}
-                    />
-                    Yes
-                  </label>
-                </div>
-                <div className="gp-textarea-area">
-                  <textarea
-                    className="gp-textarea grayed"
-                    disabled
-                    readOnly
-                  />
+              <div className="gp-section">
+                <div className="gp-row">
+                  <div className={`gp-options ${hasFieldError('copyToGP') ? 'validation-error-radio' : ''}`}>
+                    <span className={`gp-title required ${hasFieldError('copyToGP') ? 'validation-error-label' : ''}`}>Copy to GP?</span>
+                    <label className="gp-option">
+                      <input
+                        type="radio"
+                        name="copyToGP"
+                        value="Not this time"
+                        checked={formData.copyToGP === 'Not this time'}
+                        onChange={(e) => handleRadioChange('copyToGP', e.target.value)}
+                      />
+                      Not this time
+                    </label>
+                    <label className="gp-option">
+                      <input
+                        type="radio"
+                        name="copyToGP"
+                        value="Yes"
+                        checked={formData.copyToGP === 'Yes'}
+                        onChange={(e) => handleRadioChange('copyToGP', e.target.value)}
+                      />
+                      Yes
+                    </label>
+                  </div>
                 </div>
               </div>
-            </div>
 
             {/* Note to GP */}
             <div className="note-to-gp-section">
@@ -984,8 +1008,8 @@ export default function DispositionPage() {
             </div>
 
             {/* Flag for Audit and Reason */}
-            <div className="audit-section">
-              <div className="audit-checkbox-area">
+            <div className="audit-section" style={{ flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+              <div className="audit-checkbox-area" style={{ justifyContent: 'center', marginBottom: '10px' }}>
                 <input
                   type="checkbox"
                   className="audit-checkbox"
@@ -995,7 +1019,7 @@ export default function DispositionPage() {
                 />
                 <label className="audit-label" htmlFor="flagForAudit">Flag for Audit</label>
               </div>
-              <div className="audit-reason-area">
+              <div className="audit-reason-area" style={{ width: '100%' }}>
                 <label className="reason-title">Reason</label>
                 <input
                   type="text"
@@ -1049,14 +1073,25 @@ export default function DispositionPage() {
       <ConfirmationModal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
-        onConfirm={confirmSubmitEPRF}
-        title="Submit ePRF"
-        message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database\n• Download the PDF to your device`}
-        confirmText="Yes, Submit ePRF"
-        cancelText="Cancel"
-        type="success"
-        isLoading={isSubmitting}
-      />
+          onConfirm={() => confirmSubmitEPRF(pdfOption)}
+          title="Submit ePRF"
+          message={`Are you sure you want to submit this ePRF?\n\nThis will:\n Generate a PDF report for Patient ${patientLetter}\n Save the record to the database`}
+          confirmText="Yes, Submit ePRF"
+          cancelText="Cancel"
+          type="success"
+          isLoading={isSubmitting}
+        >
+          <div className="mt-4">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={pdfOption}
+                onChange={e => setPdfOption(e.target.checked)}
+              />
+              Download PDF after submit
+            </label>
+          </div>
+        </ConfirmationModal>
 
       {/* Validation Error Modal */}
       <ValidationErrorModal
@@ -1112,6 +1147,17 @@ export default function DispositionPage() {
         incidentId={incidentId}
         currentUserPermission={userPermission || 'view'}
       />
+      {/* Chat Widget */}
+      {currentUser && (
+        <ChatWidget
+          incidentId={incidentId}
+          discordId={currentUser.discordId}
+          callsign={currentUser.callsign}
+          patientLetter={patientLetter}
+          onUnreadChange={setChatUnreadCount}
+          isOpen={showChat}
+        />
+      )}
     </div>
   )
 }

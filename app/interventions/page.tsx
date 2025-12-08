@@ -10,6 +10,7 @@ import PatientManagementModal from '../components/PatientManagementModal'
 import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
+import ChatWidget from '../components/ChatWidget'
 import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
@@ -81,6 +82,19 @@ function NumericInput({ value, onChange, className = '', step = 1, min, max, pla
 }
 
 export default function InterventionsPage() {
+    // ...existing code...
+      // PDF download option state
+      const [pdfOption, setPdfOption] = useState(false)
+    const [showChat, setShowChat] = useState(false);
+    const [chatUnreadCount, setChatUnreadCount] = useState(0);
+    const [currentUser, setCurrentUser] = useState<{ discordId: string; callsign: string } | null>(null);
+
+    useEffect(() => {
+      const user = getCurrentUser();
+      if (user) {
+        setCurrentUser({ discordId: user.discordId, callsign: user.callsign });
+      }
+    }, []);
   const searchParams = useSearchParams()
   const router = useRouter()
   const incidentId = searchParams?.get('id') || ''
@@ -219,6 +233,10 @@ export default function InterventionsPage() {
   const [showOtherNotesModal, setShowOtherNotesModal] = useState(false)
   const [showDateTimePicker, setShowDateTimePicker] = useState(false)
   const [showCPRDiscontinuedPicker, setShowCPRDiscontinuedPicker] = useState(false)
+  
+  // View modal state (read-only view of submitted records)
+  const [showInterventionViewModal, setShowInterventionViewModal] = useState(false)
+  const [viewingRecord, setViewingRecord] = useState<any>(null)
   
   // Intervention state
   const [time, setTime] = useState('')
@@ -448,7 +466,31 @@ export default function InterventionsPage() {
     // Navigate to next section when created
   }
 
+  // Check if there's an unsaved intervention entry with data but missing compulsory fields
+  const hasUnsavedInterventionData = () => {
+    if (!showNewIntervention) return false
+    // Check if any optional field has data
+    const hasData = airway || ventilation || rsi || cpr || defibrillation || cardioversion ||
+                    pacing || valsalva || ivCannulation || ioAccess || chestDecompression ||
+                    stomachDecompression || catheterTroubleshooting || nerveBlock || positioning ||
+                    splintDressingTag || nasalTamponade || tourniquet || limbReduction || 
+                    epleManoeuvre || otherInterventionNotes
+    // Compulsory fields: time, performedBy
+    const missingCompulsory = !time || !performedBy
+    return hasData && missingCompulsory
+  }
+
   const handleSubmitEPRF = () => {
+    // Check for unsaved intervention with missing compulsory fields
+    if (hasUnsavedInterventionData()) {
+      const errors: {[key: string]: boolean} = {}
+      if (!time) errors.time = true
+      if (!performedBy) errors.performedBy = true
+      setValidationErrors(errors)
+      alert('You have an unsaved intervention entry. Please fill in the required fields (Time, Performed By) or discard the entry before submitting.')
+      return
+    }
+    
     const result = validateAllSections(incidentId)
     setIncompleteSections(result.incompleteSections)
     
@@ -464,14 +506,9 @@ export default function InterventionsPage() {
     setIsSubmitting(true)
     try {
       const result = await submitEPRFService(incidentId, fleetId)
-      
       if (result.success) {
         setShowSubmitModal(false)
-        setSuccessMessage({
-          title: 'ePRF Submitted Successfully!',
-          message: `The ePRF for Patient ${patientLetter} has been submitted.\n\nA PDF copy has been downloaded to your device and the record has been saved.`
-        })
-        setShowSuccessModal(true)
+        router.push('/dashboard')
       } else if (result.validationResult) {
         setShowSubmitModal(false)
         setEprfValidationErrors(result.validationResult.fieldErrors)
@@ -799,13 +836,31 @@ export default function InterventionsPage() {
   return (
     <div className="eprf-dashboard incident-page">
       <div className="eprf-nav">
-        <button className="nav-btn" onClick={handleHome}>Home</button>
+        <button className="nav-btn" onClick={() => router.push('/dashboard')}>Home</button>
         <button className="nav-btn" onClick={() => setShowPatientManagementModal(true)}>Manage Patients</button>
+        <button className="nav-btn" onClick={() => setShowValidationErrorModal(true)}>History</button>
+        <button className="nav-btn chat-btn" onClick={() => setShowChat(!showChat)} title="Chat" style={{ position: 'relative' }}>
+          Chat
+          {chatUnreadCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: 2,
+              left: 2,
+              width: 12,
+              height: 12,
+              background: 'red',
+              borderRadius: '50%',
+              display: 'inline-block',
+              border: '2px solid white',
+              zIndex: 2
+            }}></span>
+          )}
+        </button>
         {canManageCollaborators(userPermission) && (
           <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
         )}
-        <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
-        <button className="nav-btn" onClick={handleLogout}>Logout</button>
+        <button className="nav-btn" onClick={() => router.push('/admin')}>Admin Panel</button>
+        <button className="nav-btn" onClick={() => { clearCurrentUser(); router.replace('/'); }}>Logout</button>
         {incidentId && patientLetter && (
           <PresenceIndicator 
             incidentId={incidentId}
@@ -843,15 +898,23 @@ export default function InterventionsPage() {
               ) : (
                 <div style={{ marginTop: '20px' }}>
                   {savedInterventions.map((intervention, index) => (
-                    <div key={index} style={{
-                      backgroundColor: '#d8e8f8',
-                      padding: '15px',
-                      marginBottom: '10px',
-                      borderRadius: '4px',
-                      border: '1px solid #a8c5e0'
-                    }}>
-                      <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#2c5282' }}>
-                        Time: {intervention.time || 'No time recorded'} | Performed by: {intervention.performedBy || 'Not specified'}
+                    <div 
+                      key={index} 
+                      onClick={() => { setViewingRecord(intervention); setShowInterventionViewModal(true); }}
+                      style={{
+                        backgroundColor: '#d8e8f8',
+                        padding: '15px',
+                        marginBottom: '10px',
+                        borderRadius: '4px',
+                        border: '1px solid #a8c5e0',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontWeight: 'bold', color: '#2c5282' }}>
+                          Time: {intervention.time || 'No time recorded'} | Performed by: {intervention.performedBy || 'Not specified'}
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#718096', fontStyle: 'italic' }}>(click to view full)</span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '14px' }}>
                         {intervention.airway && <div><strong>Airway:</strong> {intervention.airway}</div>}
@@ -1879,13 +1942,25 @@ export default function InterventionsPage() {
       <ConfirmationModal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
-        onConfirm={confirmSubmitEPRF}
+        onConfirm={() => confirmSubmitEPRF(pdfOption)}
         title="Submit ePRF"
         message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database\n• Download the PDF to your device`}
         confirmText="Yes, Submit ePRF"
         cancelText="Cancel"
         type="success"
         isLoading={isSubmitting}
+        extraContent={
+          <div className="mt-4">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={pdfOption}
+                onChange={e => setPdfOption(e.target.checked)}
+              />
+              Download PDF after submit
+            </label>
+          </div>
+        }
       />
 
       {/* Validation Error Modal */}
@@ -1903,6 +1978,214 @@ export default function InterventionsPage() {
         title={successMessage.title}
         message={successMessage.message}
       />
+
+      {/* Intervention View Modal (read-only) */}
+      {showInterventionViewModal && viewingRecord && (
+        <div className="modal-overlay" onClick={() => { setShowInterventionViewModal(false); setViewingRecord(null); }}>
+          <div className="vital-detail-modal" onClick={(e) => e.stopPropagation()} style={{ minWidth: '550px', maxWidth: '750px' }}>
+            <div className="vital-modal-header">Intervention Record</div>
+            
+            <div className="vital-modal-section">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Time</div>
+                  <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.time || 'Not recorded'}</div>
+                </div>
+                {viewingRecord.performedBy && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Performed By</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.performedBy}</div>
+                  </div>
+                )}
+                {viewingRecord.airway && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Airway</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.airway}</div>
+                  </div>
+                )}
+                {viewingRecord.airwayMethod && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Airway Method</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.airwayMethod}</div>
+                  </div>
+                )}
+                {viewingRecord.ventilation && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Ventilation</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.ventilation}</div>
+                  </div>
+                )}
+                {viewingRecord.peep && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>PEEP</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.peep}</div>
+                  </div>
+                )}
+                {viewingRecord.cpap && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>CPAP</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.cpap}</div>
+                  </div>
+                )}
+                {viewingRecord.rsi && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>RSI</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.rsi}</div>
+                  </div>
+                )}
+                {viewingRecord.cpr && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>CPR</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.cpr}</div>
+                  </div>
+                )}
+                {viewingRecord.cprCompressions && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>CPR Compressions</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.cprCompressions}</div>
+                  </div>
+                )}
+                {viewingRecord.cprVentilations && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>CPR Ventilations</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.cprVentilations}</div>
+                  </div>
+                )}
+                {viewingRecord.cprContinuous && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>CPR Continuous</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>Yes</div>
+                  </div>
+                )}
+                {viewingRecord.cprDiscontinued && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>CPR Discontinued</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.cprDiscontinued}</div>
+                  </div>
+                )}
+                {viewingRecord.defibrillation && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Defibrillation</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.defibrillation}</div>
+                  </div>
+                )}
+                {viewingRecord.cardioversion && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Cardioversion</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.cardioversion}</div>
+                  </div>
+                )}
+                {viewingRecord.pacing && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Pacing</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.pacing}</div>
+                  </div>
+                )}
+                {viewingRecord.valsalva && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Valsalva</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.valsalva}</div>
+                  </div>
+                )}
+                {viewingRecord.ivCannulation && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>IV Cannulation</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.ivCannulation}</div>
+                  </div>
+                )}
+                {viewingRecord.ivSite && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>IV Site</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.ivSite}</div>
+                  </div>
+                )}
+                {viewingRecord.ivAttempts && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>IV Attempts</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.ivAttempts}</div>
+                  </div>
+                )}
+                {viewingRecord.ivSuccessful && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>IV Successful</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.ivSuccessful}</div>
+                  </div>
+                )}
+                {viewingRecord.ioAccess && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>IO Access</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.ioAccess}</div>
+                  </div>
+                )}
+                {viewingRecord.ioSite && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>IO Site</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.ioSite}</div>
+                  </div>
+                )}
+                {viewingRecord.ioAttempts && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>IO Attempts</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.ioAttempts}</div>
+                  </div>
+                )}
+                {viewingRecord.ioSuccessful && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>IO Successful</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.ioSuccessful}</div>
+                  </div>
+                )}
+                {viewingRecord.positioning && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Positioning</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.positioning}</div>
+                  </div>
+                )}
+                {viewingRecord.splintDressingTag && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Splint/Dressing/Tag</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.splintDressingTag}</div>
+                  </div>
+                )}
+                {viewingRecord.splintDressingTagLocation && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Splint/Dressing Location</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.splintDressingTagLocation}</div>
+                  </div>
+                )}
+                {viewingRecord.tourniquet && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Tourniquet</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.tourniquet}</div>
+                  </div>
+                )}
+                {viewingRecord.tourniquetLocation && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Tourniquet Location</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.tourniquetLocation}</div>
+                  </div>
+                )}
+                {viewingRecord.tourniquetAppliedTime && (
+                  <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                    <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Tourniquet Applied Time</div>
+                    <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.tourniquetAppliedTime}</div>
+                  </div>
+                )}
+              </div>
+              {viewingRecord.otherInterventionNotes && (
+                <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
+                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Other Notes</div>
+                  <div style={{ fontSize: '14px', color: '#4a5568', whiteSpace: 'pre-wrap' }}>{viewingRecord.otherInterventionNotes}</div>
+                </div>
+              )}
+            </div>
+
+            <div className="vital-modal-actions" style={{ justifyContent: 'center' }}>
+              <button className="vital-modal-btn ok" onClick={() => { setShowInterventionViewModal(false); setViewingRecord(null); }}>Go Back</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <TransferModal
         isOpen={showTransferModal}
@@ -1942,6 +2225,17 @@ export default function InterventionsPage() {
         incidentId={incidentId}
         currentUserPermission={userPermission || 'view'}
       />
+      {/* Chat Widget */}
+      {currentUser && (
+        <ChatWidget
+          incidentId={incidentId}
+          discordId={currentUser.discordId}
+          callsign={currentUser.callsign}
+          patientLetter={patientLetter}
+          onUnreadChange={setChatUnreadCount}
+          isOpen={showChat}
+        />
+      )}
     </div>
   )
 }

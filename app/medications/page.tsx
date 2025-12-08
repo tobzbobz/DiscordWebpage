@@ -10,6 +10,7 @@ import PatientManagementModal from '../components/PatientManagementModal'
 import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
+import ChatWidget from '../components/ChatWidget'
 import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
@@ -78,15 +79,41 @@ function NumericInput({ value, onChange, className = '', step = 1, min, max, pla
 }
 
 export default function MedicationsPage() {
+  export default function MedicationsPage() {
+    // ...existing code...
+    const [showChat, setShowChat] = useState(false);
+    const [chatUnreadCount, setChatUnreadCount] = useState(0);
+    const [currentUser, setCurrentUser] = useState<{ discordId: string; callsign: string } | null>(null);
+
+    useEffect(() => {
+      const user = getCurrentUser();
+      if (user) {
+        setCurrentUser({ discordId: user.discordId, callsign: user.callsign });
+      }
+    }, []);
   const searchParams = useSearchParams()
   const router = useRouter()
   const incidentId = searchParams?.get('id') || ''
   const fleetId = searchParams?.get('fleetId') || ''
   
-  const [incompleteSections, setIncompleteSections] = useState<string[]>([])
+  const [incompleteSections, setIncompleteSections] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`medications_incompleteSections_${incidentId}`)
+      return saved ? JSON.parse(saved) : []
+    }
+    return []
+  })
   const [patientLetter, setPatientLetter] = useState('A')
 
   // Modal states for Add Patient and Submit ePRF
+
+  // Persist incompleteSections to localStorage whenever it changes
+  useEffect(() => {
+    if (incidentId) {
+      localStorage.setItem(`medications_incompleteSections_${incidentId}`,
+        JSON.stringify(incompleteSections))
+    }
+  }, [incompleteSections, incidentId])
   const [showAddPatientModal, setShowAddPatientModal] = useState(false)
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [showTransferModal, setShowTransferModal] = useState(false)
@@ -98,6 +125,7 @@ export default function MedicationsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState({ title: '', message: '' })
   const [userPermission, setUserPermission] = useState<PermissionLevel | null>(null)
+  const [isOwner, setIsOwner] = useState(false)
   const [canTransfer, setCanTransfer] = useState(false)
 
   // Check user permission for this ePRF
@@ -107,10 +135,20 @@ export default function MedicationsPage() {
       if (incidentId && user) {
         const access = await checkEPRFAccess(incidentId, user.discordId)
         setUserPermission(access.permission)
-        
-        // Check if user can transfer the current patient
-        const transferAllowed = await checkCanTransferPatient(incidentId, patientLetter, user.discordId)
-        setCanTransfer(transferAllowed)
+        // Owner is incident owner or patient owner
+        const isIncidentOwner = access.permission === 'owner'
+        // Check if user is patient owner (author)
+        let isPatientOwner = false
+        try {
+          const allRecords = await import('../utils/eprfHistoryService').then(m => m.getAllEPRFRecords())
+          const patientRecord = allRecords.find(r => r.incidentId === incidentId && r.patientLetter === patientLetter)
+          if (patientRecord && patientRecord.author === user.discordId) {
+            isPatientOwner = true
+          }
+        } catch {}
+        setIsOwner(isIncidentOwner || isPatientOwner)
+        // Only allow transfer for owner or patient owner
+        setCanTransfer(isIncidentOwner || isPatientOwner)
       }
     }
     checkPermission()
@@ -178,6 +216,10 @@ export default function MedicationsPage() {
   const [showNotPossibleModal, setShowNotPossibleModal] = useState(false)
   const [showDateTimePicker, setShowDateTimePicker] = useState(false)
   const [validationErrors, setValidationErrors] = useState<{[key: string]: boolean}>({})
+  
+  // View modal state (read-only view of submitted records)
+  const [showMedViewModal, setShowMedViewModal] = useState(false)
+  const [viewingRecord, setViewingRecord] = useState<any>(null)
   
   // Medication state
   const [time, setTime] = useState('')
@@ -362,7 +404,32 @@ export default function MedicationsPage() {
     // Navigate to next section when created
   }
 
+  // Check if there's an unsaved medication entry with data but missing compulsory fields
+  const hasUnsavedMedicationData = () => {
+    if (!showNewMedication) return false
+    // Check if any field has data
+    const hasData = time || administeredBy || medication || dose || unit || route || 
+                    notes || notPossible || drawnUpNotUsed || brokenAmpoule || discarded || notesValue
+    // Compulsory fields: time, administeredBy, medication, dose, unit, route
+    const missingCompulsory = !time || !administeredBy || !medication || !dose || !unit || !route
+    return hasData && missingCompulsory
+  }
+
   const handleSubmitEPRF = () => {
+    // Check for unsaved medication with missing compulsory fields
+    if (hasUnsavedMedicationData()) {
+      const errors: {[key: string]: boolean} = {}
+      if (!time) errors.time = true
+      if (!administeredBy) errors.administeredBy = true
+      if (!medication) errors.medication = true
+      if (!dose) errors.dose = true
+      if (!unit) errors.unit = true
+      if (!route) errors.route = true
+      setValidationErrors(errors)
+      alert('You have an unsaved medication entry. Please fill in all required fields (Time, Administered By, Medication, Dose, Unit, Route) or discard the entry before submitting.')
+      return
+    }
+    
     const result = validateAllSections(incidentId)
     setIncompleteSections(result.incompleteSections)
     
@@ -473,6 +540,8 @@ export default function MedicationsPage() {
   const handleNewMedication = () => {
     resetMedicationForm()
     setShowNewMedication(true)
+    // Immediately open the medication search modal
+    setShowSearchModal(true)
   }
 
   const saveCurrentMedication = () => {
@@ -607,10 +676,27 @@ export default function MedicationsPage() {
       <div className="eprf-nav">
         <button className="nav-btn" onClick={handleHome}>Home</button>
         <button className="nav-btn" onClick={() => setShowPatientManagementModal(true)}>Manage Patients</button>
-        {canManageCollaborators(userPermission) && (
-          <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
-        )}
+        {/* Remove or implement setShowVersionHistory if needed */}
+        <button className="nav-btn" title="Version History" disabled>History</button>
+        <button className="nav-btn chat-btn" onClick={() => setShowChat(!showChat)} title="Chat" style={{ position: 'relative' }}>
+          Chat
+          {chatUnreadCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: 2,
+              left: 2,
+              width: 12,
+              height: 12,
+              background: 'red',
+              borderRadius: '50%',
+              display: 'inline-block',
+              border: '2px solid white',
+              zIndex: 2
+            }}></span>
+          )}
+        </button>
         <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
+        <button className="nav-btn" onClick={handleLogout}>Logout</button>
         <button className="nav-btn" onClick={handleLogout}>Logout</button>
         {incidentId && patientLetter && (
           <PresenceIndicator 
@@ -649,15 +735,23 @@ export default function MedicationsPage() {
               ) : (
                 <div style={{ marginTop: '20px' }}>
                   {savedMedications.map((med, index) => (
-                    <div key={index} style={{
-                      backgroundColor: '#d8e8f8',
-                      padding: '15px',
-                      marginBottom: '10px',
-                      borderRadius: '4px',
-                      border: '1px solid #a8c5e0'
-                    }}>
-                      <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#2c5282' }}>
-                        {med.time || 'No time recorded'}
+                    <div 
+                      key={index} 
+                      onClick={() => { setViewingRecord(med); setShowMedViewModal(true); }}
+                      style={{
+                        backgroundColor: '#d8e8f8',
+                        padding: '15px',
+                        marginBottom: '10px',
+                        borderRadius: '4px',
+                        border: '1px solid #a8c5e0',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontWeight: 'bold', color: '#2c5282' }}>
+                          {med.time || 'No time recorded'}
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#718096', fontStyle: 'italic' }}>(click to view full)</span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', fontSize: '14px' }}>
                         {med.medication && <div><strong>Med:</strong> {med.medication}</div>}
@@ -896,7 +990,7 @@ export default function MedicationsPage() {
           <div className="footer-center">
             <button 
               className={`footer-btn green ${!canTransfer ? 'disabled' : ''}`} 
-              onClick={handleTransferClick}
+              onClick={canTransfer ? handleTransferClick : undefined}
               disabled={!canTransfer}
               title={!canTransfer ? 'Only the incident owner or patient owner can transfer' : ''}
             >
@@ -1154,6 +1248,45 @@ export default function MedicationsPage() {
         title={successMessage.title}
         message={successMessage.message}
       />
+
+      {/* Medication View Modal (read-only, consistent style) */}
+      {showMedViewModal && viewingRecord && (
+        <div className="modal-overlay" onClick={() => { setShowMedViewModal(false); setViewingRecord(null); }}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px', width: '95%', overflowY: 'auto', maxHeight: '80vh' }}>
+            <div className="modal-header">Medication Record</div>
+            <div className="modal-body">
+              {(() => {
+                try {
+                  return (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                      <div><strong>Time:</strong> {viewingRecord.time || 'Not recorded'}</div>
+                      {viewingRecord.medication && <div><strong>Medication:</strong> {viewingRecord.medication}</div>}
+                      {viewingRecord.dose && <div><strong>Dose:</strong> {viewingRecord.dose} {viewingRecord.unit || ''}</div>}
+                      {viewingRecord.route && <div><strong>Route:</strong> {viewingRecord.route}</div>}
+                      {viewingRecord.administeredBy && <div><strong>Administered By:</strong> {viewingRecord.administeredBy}</div>}
+                      {viewingRecord.notPossible && <div><strong>Not Possible:</strong> {viewingRecord.notPossible}</div>}
+                      {viewingRecord.drawnUpNotUsed && <div><strong>Drawn Up Not Used:</strong> Yes</div>}
+                      {viewingRecord.brokenAmpoule && <div><strong>Broken Ampoule:</strong> Yes</div>}
+                      {viewingRecord.discarded && <div><strong>Discarded:</strong> Yes</div>}
+                    </div>
+                  )
+                } catch (err) {
+                  return <div style={{ color: 'red', fontWeight: 'bold' }}>Error loading record.</div>
+                }
+              })()}
+              {viewingRecord.notes && (
+                <div style={{ marginTop: '15px' }}>
+                  <strong>Notes:</strong>
+                  <div style={{ whiteSpace: 'pre-wrap', background: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc', padding: '10px', marginTop: '4px' }}>{viewingRecord.notes}</div>
+                </div>
+              )}
+            </div>
+            <div className="modal-actions" style={{ textAlign: 'center', marginTop: '18px' }}>
+              <button className="modal-btn ok" onClick={() => { setShowMedViewModal(false); setViewingRecord(null); }}>Go Back</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <TransferModal
         isOpen={showTransferModal}

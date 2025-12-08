@@ -11,11 +11,23 @@ import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
 import ConnectionStatus from '../components/ConnectionStatus'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
+import ChatWidget from '../components/ChatWidget'
 import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
 export default function ClinicalImpressionPage() {
+    // ...existing code...
+    const [showChat, setShowChat] = useState(false);
+    const [chatUnreadCount, setChatUnreadCount] = useState(0);
+    const [currentUser, setCurrentUser] = useState<{ discordId: string; callsign: string } | null>(null);
+
+    useEffect(() => {
+      const user = getCurrentUser();
+      if (user) {
+        setCurrentUser({ discordId: user.discordId, callsign: user.callsign });
+      }
+    }, []);
   const searchParams = useSearchParams()
   const router = useRouter()
   const incidentId = searchParams?.get('id') || ''
@@ -824,16 +836,22 @@ export default function ClinicalImpressionPage() {
         }
         
         .form-row {
-          margin-bottom: 20px;
-          position: relative;
+            margin-bottom: 20px;
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+          }
         }
         
         .field-label {
-          display: block;
-          color: #1a3a5c;
-          font-size: 14px;
-          font-weight: bold;
-          margin-bottom: 8px;
+           min-width: 220px;
+           color: #1a3a5c;
+           font-size: 14px;
+           font-weight: bold;
+           margin-bottom: 0;
+           margin-right: 10px;
+           display: flex;
+           align-items: center;
         }
         
         .field-label.required::after {
@@ -1023,6 +1041,24 @@ export default function ClinicalImpressionPage() {
       <div className="eprf-nav">
         <button className="nav-btn" onClick={handleHome}>Home</button>
         <button className="nav-btn" onClick={() => setShowPatientManagementModal(true)}>Manage Patients</button>
+        <button className="nav-btn" onClick={() => setShowValidationErrorModal(true)}>History</button>
+        <button className="nav-btn chat-btn" onClick={() => setShowChat(!showChat)} title="Chat" style={{ position: 'relative' }}>
+          Chat
+          {chatUnreadCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: 2,
+              left: 2,
+              width: 12,
+              height: 12,
+              background: 'red',
+              borderRadius: '50%',
+              display: 'inline-block',
+              border: '2px solid white',
+              zIndex: 2
+            }}></span>
+          )}
+        </button>
         {canManageCollaborators(userPermission) && (
           <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
         )}
@@ -1059,90 +1095,92 @@ export default function ClinicalImpressionPage() {
         <main className="incident-content">
           <div className="form-container">
             {/* Primary Clinical Impression */}
-            <div className="form-row">
-              <label className={`field-label required ${hasFieldError('primaryClinicalImpression') ? 'validation-error-label' : ''}`}>Primary Clinical Impression</label>
-              <div className="input-row">
-                <input
-                  ref={primaryInputRef}
-                  type="text"
-                  className={`text-input ${hasFieldError('primaryClinicalImpression') ? 'validation-error' : ''}`}
-                  value={formData.primaryClinicalImpression}
-                  onChange={(e) => {
-                    setFormData(prev => ({ ...prev, primaryClinicalImpression: e.target.value }))
-                    setShowPrimaryDropdown(false)
-                  }}
-                  onClick={() => {
-                    setShowPrimaryDropdown(false)
-                    setShowSecondaryDropdown(false)
-                  }}
-                />
-                <button className="action-btn" onClick={handlePrimarySearch}>Search</button>
-                <button className="action-btn" onClick={() => openList('primary')}>List</button>
-              </div>
-              {showPrimaryDropdown && filteredPrimaryImpressions.length > 0 && (
-                <div className="dropdown-list">
-                  {filteredPrimaryImpressions.slice(0, 20).map((impression, index) => (
-                    <div
-                      key={index}
-                      className="dropdown-item"
-                      onClick={() => selectPrimaryImpression(impression)}
-                    >
-                      {impression}
-                    </div>
-                  ))}
+              <div className="form-row">
+                <label className={`field-label required ${hasFieldError('primaryClinicalImpression') ? 'validation-error-label' : ''}`}>Primary Clinical Impression</label>
+                <div className="input-row" style={{ flex: 1 }}>
+                  <input
+                    ref={primaryInputRef}
+                    type="text"
+                    className={`text-input ${hasFieldError('primaryClinicalImpression') ? 'validation-error' : ''}`}
+                    value={formData.primaryClinicalImpression}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, primaryClinicalImpression: e.target.value }))
+                      setShowPrimaryDropdown(false)
+                    }}
+                    onClick={() => {
+                      setShowPrimaryDropdown(false)
+                      setShowSecondaryDropdown(false)
+                    }}
+                  />
+                  <button className="action-btn" onClick={handlePrimarySearch}>Search</button>
+                  <button className="action-btn" onClick={() => openList('primary')}>List</button>
                 </div>
-              )}
-            </div>
+                {showPrimaryDropdown && filteredPrimaryImpressions.length > 0 && (
+                  <div className="dropdown-list">
+                    {filteredPrimaryImpressions.slice(0, 20).map((impression, index) => (
+                      <div
+                        key={index}
+                        className="dropdown-item"
+                        onClick={() => selectPrimaryImpression(impression)}
+                      >
+                        {impression}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
             {/* Secondary Clinical Impression */}
-            <div className="form-row">
-              <label className="field-label">Secondary Clinical Impression</label>
-              <div className="input-row">
-                <input
-                  ref={secondaryInputRef}
-                  type="text"
-                  className="text-input"
-                  value={formData.secondaryClinicalImpression}
-                  onChange={(e) => {
-                    setFormData(prev => ({ ...prev, secondaryClinicalImpression: e.target.value }))
-                    setShowSecondaryDropdown(false)
-                  }}
-                  onClick={() => {
-                    setShowPrimaryDropdown(false)
-                    setShowSecondaryDropdown(false)
-                  }}
-                />
-                <button className="action-btn" onClick={handleSecondarySearch}>Search</button>
-                <button className="action-btn" onClick={() => openList('secondary')}>List</button>
-              </div>
-              {showSecondaryDropdown && filteredSecondaryImpressions.length > 0 && (
-                <div className="dropdown-list">
-                  {filteredSecondaryImpressions.slice(0, 20).map((impression, index) => (
-                    <div
-                      key={index}
-                      className="dropdown-item"
-                      onClick={() => selectSecondaryImpression(impression)}
-                    >
-                      {impression}
-                    </div>
-                  ))}
+              <div className="form-row">
+                <label className="field-label">Secondary Clinical Impression</label>
+                <div className="input-row" style={{ flex: 1 }}>
+                  <input
+                    ref={secondaryInputRef}
+                    type="text"
+                    className="text-input"
+                    value={formData.secondaryClinicalImpression}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, secondaryClinicalImpression: e.target.value }))
+                      setShowSecondaryDropdown(false)
+                    }}
+                    onClick={() => {
+                      setShowPrimaryDropdown(false)
+                      setShowSecondaryDropdown(false)
+                    }}
+                  />
+                  <button className="action-btn" onClick={handleSecondarySearch}>Search</button>
+                  <button className="action-btn" onClick={() => openList('secondary')}>List</button>
                 </div>
-              )}
-            </div>
+                {showSecondaryDropdown && filteredSecondaryImpressions.length > 0 && (
+                  <div className="dropdown-list">
+                    {filteredSecondaryImpressions.slice(0, 20).map((impression, index) => (
+                      <div
+                        key={index}
+                        className="dropdown-item"
+                        onClick={() => selectSecondaryImpression(impression)}
+                      >
+                        {impression}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
             {/* Clinical Impression Notes */}
-            <div className="form-row">
-              <label className="field-label">Clinical Impression Notes</label>
-              <textarea
-                className="notes-textarea"
-                value={formData.clinicalImpressionNotes}
-                onChange={(e) => setFormData(prev => ({ ...prev, clinicalImpressionNotes: e.target.value }))}
-                onClick={() => {
-                  setShowPrimaryDropdown(false)
-                  setShowSecondaryDropdown(false)
-                }}
-              />
-            </div>
+              <div className="form-row">
+                <label className="field-label">Clinical Impression Notes</label>
+                <div style={{ flex: 1 }}>
+                  <textarea
+                    className="notes-textarea"
+                    value={formData.clinicalImpressionNotes}
+                    onChange={(e) => setFormData(prev => ({ ...prev, clinicalImpressionNotes: e.target.value }))}
+                    onClick={() => {
+                      setShowPrimaryDropdown(false)
+                      setShowSecondaryDropdown(false)
+                    }}
+                  />
+                </div>
+              </div>
           </div>
         </main>
       </div>
@@ -1218,14 +1256,25 @@ export default function ClinicalImpressionPage() {
       <ConfirmationModal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
-        onConfirm={confirmSubmitEPRF}
-        title="Submit ePRF"
-        message={`Are you sure you want to submit the ePRF for Patient ${patientLetter}?\n\nThis will:\n• Generate a PDF copy for your records\n• Submit the data to the server\n• Mark this ePRF as complete`}
-        confirmText="Yes, Submit ePRF"
-        cancelText="Cancel"
-        type="success"
-        isLoading={isSubmitting}
-      />
+          onConfirm={() => confirmSubmitEPRF(pdfOption)}
+          title="Submit ePRF"
+          message={`Are you sure you want to submit the ePRF for Patient ${patientLetter}?\n\nThis will:\n Generate a PDF copy for your records\n Submit the data to the server`}
+          confirmText="Yes, Submit ePRF"
+          cancelText="Cancel"
+          type="success"
+          isLoading={isSubmitting}
+        >
+          <div className="mt-4">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={pdfOption}
+                onChange={e => setPdfOption(e.target.checked)}
+              />
+              Download PDF after submit
+            </label>
+          </div>
+        </ConfirmationModal>
 
       <ValidationErrorModal
         isOpen={showValidationErrorModal}
@@ -1279,6 +1328,17 @@ export default function ClinicalImpressionPage() {
         incidentId={incidentId}
         currentUserPermission={userPermission || 'view'}
       />
+      {/* Chat Widget */}
+      {currentUser && (
+        <ChatWidget
+          incidentId={incidentId}
+          discordId={currentUser.discordId}
+          callsign={currentUser.callsign}
+          patientLetter={patientLetter}
+          onUnreadChange={setChatUnreadCount}
+          isOpen={showChat}
+        />
+      )}
     </div>
   )
 }

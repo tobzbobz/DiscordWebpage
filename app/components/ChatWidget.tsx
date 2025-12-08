@@ -16,6 +16,8 @@ interface ChatWidgetProps {
   patientLetter?: string;
   chatType?: 'incident' | 'patient';
   collaborators?: { discordId: string; callsign: string }[];
+  onUnreadChange?: (count: number) => void;
+  isOpen?: boolean;
 }
 
 interface TypingUser {
@@ -29,9 +31,11 @@ export default function ChatWidget({
   incidentId,
   patientLetter = '',
   chatType = 'incident',
-  collaborators = []
+  collaborators = [],
+  onUnreadChange,
+  isOpen: externalIsOpen = false
 }: ChatWidgetProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(externalIsOpen);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -158,12 +162,21 @@ export default function ChatWidget({
     }
   }, [messages, isOpen, isMinimized]);
 
-  // Reset unread when opening
+  // Reset unread when opening, and notify parent
   useEffect(() => {
     if (isOpen && !isMinimized) {
       setUnreadCount(0);
+      if (onUnreadChange) onUnreadChange(0);
     }
-  }, [isOpen, isMinimized]);
+  }, [isOpen, isMinimized, onUnreadChange]);
+  // Notify parent of unread count
+  useEffect(() => {
+    if (onUnreadChange) onUnreadChange(unreadCount);
+  }, [unreadCount, onUnreadChange]);
+  // Sync external open state
+  useEffect(() => {
+    setIsOpen(externalIsOpen);
+  }, [externalIsOpen]);
 
   // Handle typing indicator
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

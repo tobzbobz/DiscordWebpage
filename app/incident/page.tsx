@@ -217,14 +217,9 @@ export default function IncidentPage() {
     setIsSubmitting(true)
     try {
       const result = await submitEPRFService(incidentId, fleetId)
-      
       if (result.success) {
         setShowSubmitModal(false)
-        setSuccessMessage({
-          title: 'ePRF Submitted Successfully!',
-          message: `The ePRF for Patient ${patientLetter} has been submitted.\n\nA PDF copy has been downloaded to your device and the record has been saved.`
-        })
-        setShowSuccessModal(true)
+        router.push('/dashboard')
       } else if (result.validationResult) {
         setShowSubmitModal(false)
         setValidationErrors(result.validationResult.fieldErrors)
@@ -413,7 +408,23 @@ export default function IncidentPage() {
           <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
         )}
         <button className="nav-btn" onClick={() => setShowVersionHistory(true)} title="Version History">History</button>
-        <button className="nav-btn" onClick={() => setShowChat(!showChat)} title="Chat">Chat</button>
+        <button className="nav-btn chat-btn" onClick={() => setShowChat(!showChat)} title="Chat" style={{ position: 'relative' }}>
+          Chat
+          {chatUnreadCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: 2,
+              left: 2,
+              width: 12,
+              height: 12,
+              background: 'red',
+              borderRadius: '50%',
+              display: 'inline-block',
+              border: '2px solid white',
+              zIndex: 2
+            }}></span>
+          )}
+        </button>
         <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
         <button className="nav-btn" onClick={handleLogout}>Logout</button>
         {incidentId && patientLetter && (
@@ -636,13 +647,25 @@ export default function IncidentPage() {
       <ConfirmationModal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
-        onConfirm={confirmSubmitEPRF}
+        onConfirm={() => confirmSubmitEPRF(pdfOption)}
         title="Submit ePRF"
-        message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database\n• Download the PDF to your device`}
+        message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database`}
         confirmText="Yes, Submit ePRF"
         cancelText="Cancel"
         type="success"
         isLoading={isSubmitting}
+        extraContent={
+          <div className="mt-4">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={pdfOption}
+                onChange={e => setPdfOption(e.target.checked)}
+              />
+              Download PDF after submit
+            </label>
+          </div>
+        }
       />
 
       <ValidationErrorModal
@@ -758,6 +781,8 @@ export default function IncidentPage() {
             discordId={currentUser.discordId}
             callsign={currentUser.callsign}
             patientLetter={patientLetter}
+            onUnreadChange={setChatUnreadCount}
+            isOpen={showChat}
           />
 
           {/* Version History Modal */}

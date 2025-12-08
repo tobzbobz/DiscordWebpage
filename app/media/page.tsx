@@ -11,6 +11,7 @@ import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
 import ConnectionStatus from '../components/ConnectionStatus'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
+import ChatWidget from '../components/ChatWidget'
 import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
@@ -24,6 +25,22 @@ interface MediaItem {
 }
 
 export default function MediaPage() {
+      // ...existing code...
+        // PDF download option state
+        const [pdfOption, setPdfOption] = useState(false)
+      const [showChat, setShowChat] = useState(false);
+      const [chatUnreadCount, setChatUnreadCount] = useState(0);
+      const [currentUser, setCurrentUser] = useState<{ discordId: string; callsign: string } | null>(null);
+
+      useEffect(() => {
+        const user = getCurrentUser();
+        if (user) {
+          setCurrentUser({ discordId: user.discordId, callsign: user.callsign });
+        }
+      }, []);
+    // Rename state
+    const [renamingId, setRenamingId] = useState<string | null>(null);
+    const [renameValue, setRenameValue] = useState<string>('');
   const searchParams = useSearchParams()
   const router = useRouter()
   const incidentId = searchParams?.get('id') || ''
@@ -68,6 +85,47 @@ export default function MediaPage() {
     checkPermission()
   }, [incidentId, patientLetter])
 
+  // Bulk select state
+  const [bulkSelectMode, setBulkSelectMode] = useState(false);
+  const [bulkSelectedIds, setBulkSelectedIds] = useState<string[]>([]);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const handleBulkSelectStart = (id: string) => {
+    setBulkSelectMode(true);
+    setBulkSelectedIds([id]);
+    setSelectedMedia(null);
+    setRenamingId(null);
+  };
+  const handleBulkSelectToggle = (id: string) => {
+    setBulkSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+  useEffect(() => {
+    if (bulkSelectMode && bulkSelectedIds.length === 0) {
+      setBulkSelectMode(false);
+    }
+  }, [bulkSelectedIds, bulkSelectMode]);
+  const handleBulkDiscard = () => {
+    setMediaItems(prev => prev.filter(item => !bulkSelectedIds.includes(item.id)));
+    setBulkSelectedIds([]);
+    setBulkSelectMode(false);
+  };
+  const handleMediaItemMouseDown = (id: string) => {
+    if (!bulkSelectMode) {
+      longPressTimer.current = setTimeout(() => handleBulkSelectStart(id), 500);
+    }
+  };
+  const handleMediaItemMouseUp = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+  const handleMediaItemMouseLeave = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
   // Load patient letter on mount
   useEffect(() => {
     if (incidentId) {
@@ -83,68 +141,6 @@ export default function MediaPage() {
         try {
           const parsed = JSON.parse(saved)
           setMediaItems(parsed)
-        } catch (e) {
-          console.error('Failed to parse saved data:', e)
-        }
-      }
-    }
-  }, [incidentId])
-
-  // Save data whenever it changes
-  useEffect(() => {
-    if (incidentId) {
-      localStorage.setItem(`media_${incidentId}`, JSON.stringify(mediaItems))
-    }
-  }, [mediaItems, incidentId])
-
-  const handleLogout = () => {
-    clearCurrentUser()
-    router.replace('/')
-  }
-
-  const handleHome = () => {
-    const params = new URLSearchParams({ fleetId })
-    router.push(`/dashboard?${params}`)
-  }
-
-  const handleAdminPanel = () => {
-    const user = getCurrentUser()
-    if (user && isAdmin(user.discordId)) {
-      router.push('/admin')
-    }
-  }
-
-  const handleTransferClick = () => {
-    setShowTransferModal(true)
-  }
-
-  const handleTransferComplete = (targetUser: any) => {
-    const { transferAllPatients } = require('../utils/eprfHistoryService')
-    transferAllPatients(incidentId, targetUser.discordId, targetUser.callsign)
-    
-    setShowTransferModal(false)
-    setSuccessMessage({
-      title: 'ePRF Transferred',
-      message: `The ePRF has been transferred to ${targetUser.callsign}. You will be redirected to the dashboard.`
-    })
-    setShowSuccessModal(true)
-    setTimeout(() => {
-      handleHome()
-    }, 2000)
-  }
-
-  const navigateTo = (section: string) => {
-    const params = new URLSearchParams({ id: incidentId, fleetId })
-    if (section === 'incident') router.push(`/incident?${params}`)
-    else if (section === 'patient-info') router.push(`/patient-info?${params}`)
-    else if (section === 'primary-survey') router.push(`/primary-survey?${params}`)
-    else if (section === 'vital-obs') router.push(`/vital-obs?${params}`)
-    else if (section === 'hx-complaint') router.push(`/hx-complaint?${params}`)
-    else if (section === 'past-medical-history') router.push(`/past-medical-history?${params}`)
-    else if (section === 'clinical-impression') router.push(`/clinical-impression?${params}`)
-    else if (section === 'disposition') router.push(`/disposition?${params}`)
-    else if (section === 'media') router.push(`/media?${params}`)
-  }
 
   const handlePrevious = () => {
     navigateTo('disposition')
@@ -170,14 +166,9 @@ export default function MediaPage() {
     setIsSubmitting(true)
     try {
       const result = await submitEPRFService(incidentId, fleetId)
-      
       if (result.success) {
         setShowSubmitModal(false)
-        setSuccessMessage({
-          title: 'ePRF Submitted Successfully!',
-          message: `The ePRF for Patient ${patientLetter} has been submitted.\n\nA PDF copy has been downloaded to your device and the record has been saved.`
-        })
-        setShowSuccessModal(true)
+        router.push('/dashboard')
       } else if (result.validationResult) {
         setShowSubmitModal(false)
         setValidationErrors(result.validationResult.fieldErrors)
@@ -212,7 +203,7 @@ export default function MediaPage() {
         
         setTimeout(() => {
           const params = new URLSearchParams({ id: incidentId, fleetId })
-          router.push(`/patient-info?${params}`)
+          router.push(`/incident?${params}`)
         }, 2000)
       } else {
         alert(result.error || 'Failed to add patient')
@@ -295,25 +286,43 @@ export default function MediaPage() {
         }
 
         mediaRecorder.start()
-        setIsRecording(true)
-      } catch (err) {
-        console.error('Failed to start recording:', err)
-        alert('Could not access microphone. Please check permissions.')
-      }
+        setIsSubmitting(true)
+        try {
+          const result = await submitEPRFService(incidentId, fleetId, pdfOption)
+          if (result.success) {
+            setShowSubmitModal(false)
+            router.push('/dashboard')
+          } else if (result.validationResult) {
+            setShowSubmitModal(false)
+            setValidationErrors(result.validationResult.fieldErrors)
+            setIncompleteSections(result.validationResult.incompleteSections)
+            setShowValidationErrorModal(true)
+          }
+        } catch (error) {
+          console.error('Submit error:', error)
+          alert('An error occurred while submitting. Please try again.')
+        } finally {
+          setIsSubmitting(false)
+        }
+    setRenameValue(item.name);
+  };
+
+  // Rename confirm (on blur or Enter)
+  const handleRenameConfirm = () => {
+    if (renamingId && renameValue.trim()) {
+      setMediaItems(prev => prev.map(item => item.id === renamingId ? { ...item, name: renameValue.trim() } : item));
+      setRenamingId(null);
     }
-  }
+  };
 
-  const handleDiscard = () => {
-    if (selectedMedia) {
-      setMediaItems(prev => prev.filter(item => item.id !== selectedMedia))
-      setSelectedMedia(null)
+  // Keyboard handler for rename input
+  const handleRenameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleRenameConfirm();
+    } else if (e.key === 'Escape') {
+      setRenamingId(null);
     }
-  }
-
-  const handleSelectMedia = (id: string) => {
-    setSelectedMedia(selectedMedia === id ? null : id)
-  }
-
+  };
   const getSelectedMediaItem = () => {
     return mediaItems.find(item => item.id === selectedMedia)
   }
@@ -472,13 +481,31 @@ export default function MediaPage() {
       `}</style>
 
       <div className="eprf-nav">
-        <button className="nav-btn" onClick={handleHome}>Home</button>
+        <button className="nav-btn" onClick={() => router.push('/dashboard')}>Home</button>
         <button className="nav-btn" onClick={() => setShowPatientManagementModal(true)}>Manage Patients</button>
+        <button className="nav-btn" onClick={() => setShowValidationErrorModal(true)}>History</button>
+        <button className="nav-btn chat-btn" onClick={() => setShowChat(!showChat)} title="Chat" style={{ position: 'relative' }}>
+          Chat
+          {chatUnreadCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: 2,
+              left: 2,
+              width: 12,
+              height: 12,
+              background: 'red',
+              borderRadius: '50%',
+              display: 'inline-block',
+              border: '2px solid white',
+              zIndex: 2
+            }}></span>
+          )}
+        </button>
         {canManageCollaborators(userPermission) && (
           <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
         )}
-        <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
-        <button className="nav-btn" onClick={handleLogout}>Logout</button>
+        <button className="nav-btn" onClick={() => router.push('/admin')}>Admin Panel</button>
+        <button className="nav-btn" onClick={() => { clearCurrentUser(); router.replace('/'); }}>Logout</button>
         {incidentId && patientLetter && (
           <PresenceIndicator 
             incidentId={incidentId}
@@ -550,12 +577,32 @@ export default function MediaPage() {
                     key={item.id}
                     className={`media-item ${selectedMedia === item.id ? 'selected' : ''}`}
                     onClick={() => handleSelectMedia(item.id)}
+                    onDoubleClick={() => (item.type === 'image' || item.type === 'audio') ? handleRenameStart(item) : undefined}
                   >
                     <span className="media-item-icon">
-                      {item.type === 'image' ? '🖼️' : item.type === 'audio' ? '🎵' : '🎬'}
+                      {item.type === 'image' ? (
+                        <img
+                          src={item.dataUrl}
+                          alt={item.name}
+                          className="media-thumb"
+                          style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4, border: '1px solid #ccc', background: '#fff' }}
+                        />
+                      ) : item.type === 'audio' ? '🎵' : '🎬'}
                     </span>
                     <div className="media-item-info">
-                      <div className="media-item-name">{item.name}</div>
+                      <div className="media-item-name">
+                        {renamingId === item.id ? (
+                          <input
+                            type="text"
+                            value={renameValue}
+                            autoFocus
+                            onChange={e => setRenameValue(e.target.value)}
+                            onBlur={handleRenameConfirm}
+                            onKeyDown={handleRenameKeyDown}
+                            style={{ fontSize: 13, fontWeight: 500, width: '90%', border: '1px solid #7a9cc0', borderRadius: 3, padding: '2px 6px' }}
+                          />
+                        ) : item.name}
+                      </div>
                       <div className="media-item-time">{item.timestamp}</div>
                     </div>
                   </div>
@@ -588,7 +635,7 @@ export default function MediaPage() {
       <div className="eprf-footer incident-footer">
         <ConnectionStatus />
         <div className="footer-left">
-          <button className="footer-btn discovery" onClick={handleAddPatientClick}>Add Patient</button>
+          <button className="footer-btn orange" onClick={handleAddPatientClick}>Add Patient</button>
           <button 
             className={`footer-btn green ${!canTransfer ? 'disabled' : ''}`} 
             onClick={handleTransferClick}
@@ -620,13 +667,25 @@ export default function MediaPage() {
       <ConfirmationModal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
-        onConfirm={confirmSubmitEPRF}
+        onConfirm={() => confirmSubmitEPRF(pdfOption)}
         title="Submit ePRF"
         message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database\n• Download the PDF to your device`}
         confirmText="Yes, Submit ePRF"
         cancelText="Cancel"
         type="success"
         isLoading={isSubmitting}
+        extraContent={
+          <div className="mt-4">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={pdfOption}
+                onChange={e => setPdfOption(e.target.checked)}
+              />
+              Download PDF after submit
+            </label>
+          </div>
+        }
       />
 
       <ValidationErrorModal
@@ -657,21 +716,23 @@ export default function MediaPage() {
         incidentId={incidentId}
         fleetId={fleetId}
         onPatientSwitch={(letter) => {
-          setPatientLetter(letter)
-          const params = new URLSearchParams({ id: incidentId, fleetId })
-          router.push(`/media?${params}`)
+          setPatientLetter(letter);
+          localStorage.setItem(`patient_letter_${incidentId}`, letter);
+          const params = new URLSearchParams({ id: incidentId, fleetId });
+          router.push(`/media?${params}`);
         }}
         onPatientAdded={(newLetter, previousLetter) => {
-          setPatientLetter(newLetter)
+          setPatientLetter(newLetter);
+          localStorage.setItem(`patient_letter_${incidentId}`, newLetter);
           setSuccessMessage({
             title: 'Patient Added Successfully!',
             message: `Patient ${previousLetter} has been saved.\n\nYou are now working on Patient ${newLetter}.\n\nThe form has been cleared for the new patient.`
-          })
-          setShowSuccessModal(true)
+          });
+          setShowSuccessModal(true);
           setTimeout(() => {
-            const params = new URLSearchParams({ id: incidentId, fleetId })
-            router.push(`/patient-info?${params}`)
-          }, 2000)
+            const params = new URLSearchParams({ id: incidentId, fleetId });
+            router.push(`/incident?${params}`);
+          }, 2000);
         }}
       />
 
@@ -681,6 +742,17 @@ export default function MediaPage() {
         incidentId={incidentId}
         currentUserPermission={userPermission || 'view'}
       />
+      {/* Chat Widget */}
+      {currentUser && (
+        <ChatWidget
+          incidentId={incidentId}
+          discordId={currentUser.discordId}
+          callsign={currentUser.callsign}
+          patientLetter={patientLetter}
+          onUnreadChange={setChatUnreadCount}
+          isOpen={showChat}
+        />
+      )}
     </div>
   )
 }

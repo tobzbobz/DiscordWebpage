@@ -142,7 +142,7 @@ export default function SearchModal({ discordId, isOpen, onClose }: SearchModalP
     
     return parts.map((part, i) => 
       regex.test(part) ? (
-        <span key={i} className="bg-yellow-500/30 text-yellow-200 font-medium">{part}</span>
+        <span key={i} style={{ background: '#fffacd', fontWeight: 'bold' }}>{part}</span>
       ) : part
     );
   };
@@ -150,157 +150,394 @@ export default function SearchModal({ discordId, isOpen, onClose }: SearchModalP
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-[15vh] z-50 p-4">
-      <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
-        {/* Search Input */}
-        <div className="p-4 border-b border-slate-700">
-          <div className="flex items-center gap-3">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              ref={inputRef}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Search records, patients, callsigns, medications..."
-              className="flex-1 bg-transparent text-white text-lg focus:outline-none placeholder:text-slate-500"
-            />
-            {loading && (
-              <div className="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-            )}
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`p-2 rounded-lg transition-colors ${
-                showFilters ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-              }`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-            </button>
-            <button
-              onClick={onClose}
-              className="text-slate-400 hover:text-white p-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+    <>
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="search-modal-dialog" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">
+            <span>Advanced Search</span>
+            <button className="close-btn" onClick={onClose}>×</button>
           </div>
-
-          {/* Filters */}
-          {showFilters && (
-            <div className="mt-4 pt-4 border-t border-slate-700/50 grid grid-cols-3 gap-4">
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Status</label>
-                <select
-                  value={filters.status}
-                  onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value as '' | 'incomplete' | 'complete' }))}
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">All statuses</option>
-                  <option value="incomplete">In Progress</option>
-                  <option value="complete">Complete</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">From Date</label>
-                <input
-                  type="date"
-                  value={filters.dateFrom}
-                  onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">To Date</label>
-                <input
-                  type="date"
-                  value={filters.dateTo}
-                  onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Results */}
-        <div ref={resultsRef} className="max-h-96 overflow-y-auto">
-          {!query.trim() ? (
-            <div className="p-8 text-center text-slate-400">
-              <p className="text-4xl mb-2">🔍</p>
-              <p>Start typing to search</p>
-              <p className="text-sm mt-1">Search by incident ID, patient name, callsign, or keywords</p>
-            </div>
-          ) : results.length === 0 && !loading ? (
-            <div className="p-8 text-center text-slate-400">
-              <p className="text-4xl mb-2">📭</p>
-              <p>No results found</p>
-              <p className="text-sm mt-1">Try different keywords or adjust filters</p>
-            </div>
-          ) : (
-            results.map((result, index) => (
-              <div
-                key={`${result.incidentId}-${result.patientLetter}-${index}`}
-                data-index={index}
-                onClick={() => navigateToResult(result)}
-                className={`p-4 cursor-pointer border-b border-slate-700/50 transition-colors ${
-                  index === selectedIndex ? 'bg-blue-600/20' : 'hover:bg-slate-700/30'
-                }`}
+          <div className="modal-body">
+            {/* Search Input */}
+            <div className="search-input-wrapper">
+              <span className="search-icon">🔍</span>
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Search records, patients, callsigns, medications..."
+                className="search-input"
+              />
+              {loading && <span className="loading-spinner"></span>}
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`filter-toggle-btn ${showFilters ? 'active' : ''}`}
+                title="Toggle Filters"
               >
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">{getMatchIcon(result.matchType)}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-white">
-                        Incident {result.incidentId}
-                      </span>
-                      {result.patientLetter && (
-                        <span className="text-sm text-slate-400">
-                          • Patient {result.patientLetter}
-                        </span>
-                      )}
-                      <span className={`ml-auto text-xs px-2 py-0.5 rounded ${
-                        result.status === 'complete' 
-                          ? 'bg-green-600/30 text-green-400' 
-                          : 'bg-amber-600/30 text-amber-400'
-                      }`}>
-                        {result.status === 'complete' ? 'Complete' : 'In Progress'}
-                      </span>
-                    </div>
-                    <p className="text-sm text-slate-300 mt-1">
-                      <span className="text-slate-500">{result.matchedField}:</span>{' '}
-                      {highlightMatch(result.matchedValue, query)}
-                    </p>
-                    <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
-                      <span>by {result.authorCallsign}</span>
-                      <span>•</span>
-                      <span>{new Date(result.createdAt).toLocaleDateString()}</span>
-                      <span>•</span>
-                      <span className="text-blue-400">Score: {Math.round(result.relevanceScore)}</span>
-                    </div>
-                  </div>
+                ⚙️
+              </button>
+            </div>
+
+            {/* Filters */}
+            {showFilters && (
+              <div className="search-filters">
+                <div className="filter-field">
+                  <label>Status</label>
+                  <select
+                    value={filters.status}
+                    onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value as '' | 'incomplete' | 'complete' }))}
+                    className="filter-select"
+                  >
+                    <option value="">All statuses</option>
+                    <option value="incomplete">In Progress</option>
+                    <option value="complete">Complete</option>
+                  </select>
+                </div>
+                <div className="filter-field">
+                  <label>From Date</label>
+                  <input
+                    type="date"
+                    value={filters.dateFrom}
+                    onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+                    className="filter-input"
+                  />
+                </div>
+                <div className="filter-field">
+                  <label>To Date</label>
+                  <input
+                    type="date"
+                    value={filters.dateTo}
+                    onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+                    className="filter-input"
+                  />
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            )}
 
-        {/* Footer */}
-        <div className="p-3 border-t border-slate-700 flex items-center justify-between text-xs text-slate-500">
-          <div className="flex items-center gap-4">
-            <span><kbd className="px-1.5 py-0.5 bg-slate-700 rounded font-mono">↑</kbd> <kbd className="px-1.5 py-0.5 bg-slate-700 rounded font-mono">↓</kbd> Navigate</span>
-            <span><kbd className="px-1.5 py-0.5 bg-slate-700 rounded font-mono">Enter</kbd> Open</span>
-            <span><kbd className="px-1.5 py-0.5 bg-slate-700 rounded font-mono">Esc</kbd> Close</span>
+            {/* Results */}
+            <div ref={resultsRef} className="search-results">
+              {!query.trim() ? (
+                <div className="empty-state">
+                  <p className="empty-icon">🔍</p>
+                  <p>Start typing to search</p>
+                  <p className="empty-hint">Search by incident ID, patient name, callsign, or keywords</p>
+                </div>
+              ) : results.length === 0 && !loading ? (
+                <div className="empty-state">
+                  <p className="empty-icon">📭</p>
+                  <p>No results found</p>
+                  <p className="empty-hint">Try different keywords or adjust filters</p>
+                </div>
+              ) : (
+                results.map((result, index) => (
+                  <div
+                    key={`${result.incidentId}-${result.patientLetter}-${index}`}
+                    data-index={index}
+                    onClick={() => navigateToResult(result)}
+                    className={`result-item ${index === selectedIndex ? 'selected' : ''}`}
+                  >
+                    <span className="result-icon">{getMatchIcon(result.matchType)}</span>
+                    <div className="result-content">
+                      <div className="result-header">
+                        <span className="result-title">
+                          Incident {result.incidentId}
+                        </span>
+                        {result.patientLetter && (
+                          <span className="result-patient">
+                            • Patient {result.patientLetter}
+                          </span>
+                        )}
+                        <span className={`result-status ${result.status}`}>
+                          {result.status === 'complete' ? 'Complete' : 'In Progress'}
+                        </span>
+                      </div>
+                      <p className="result-match">
+                        <span className="match-field">{result.matchedField}:</span>{' '}
+                        {highlightMatch(result.matchedValue, query)}
+                      </p>
+                      <div className="result-meta">
+                        <span>by {result.authorCallsign}</span>
+                        <span>•</span>
+                        <span>{new Date(result.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="search-footer">
+              <div className="keyboard-hints">
+                <span><kbd>↑</kbd> <kbd>↓</kbd> Navigate</span>
+                <span><kbd>Enter</kbd> Open</span>
+                <span><kbd>Esc</kbd> Close</span>
+              </div>
+              {results.length > 0 && (
+                <span className="result-count">{results.length} result{results.length !== 1 ? 's' : ''}</span>
+              )}
+            </div>
           </div>
-          {results.length > 0 && (
-            <span>{results.length} result{results.length !== 1 ? 's' : ''}</span>
-          )}
         </div>
       </div>
-    </div>
+      <style jsx>{`
+        .search-modal-dialog {
+          background: linear-gradient(to bottom, #b8d4ea 0%, #a0c4e0 100%);
+          border: 3px solid #4a6d8c;
+          border-radius: 8px;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+          min-width: 500px;
+          max-width: 650px;
+          width: 100%;
+          overflow: hidden;
+        }
+        
+        .modal-header {
+          background: linear-gradient(to bottom, #4a6d8c 0%, #3d5a75 100%);
+          color: white;
+          padding: 12px 20px;
+          font-size: 18px;
+          font-weight: bold;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+          border-bottom: 2px solid #2d4a5f;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        
+        .close-btn {
+          background: none;
+          border: none;
+          color: white;
+          font-size: 24px;
+          cursor: pointer;
+          padding: 0 5px;
+          line-height: 1;
+        }
+        
+        .close-btn:hover {
+          opacity: 0.8;
+        }
+        
+        .modal-body {
+          padding: 20px;
+        }
+        
+        .search-input-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          background: white;
+          border: 2px solid #5a7a9a;
+          border-radius: 6px;
+          padding: 8px 12px;
+          margin-bottom: 15px;
+        }
+        
+        .search-icon {
+          font-size: 18px;
+        }
+        
+        .search-input {
+          flex: 1;
+          border: none;
+          font-size: 15px;
+          font-family: Arial, Helvetica, sans-serif;
+          outline: none;
+        }
+        
+        .loading-spinner {
+          width: 18px;
+          height: 18px;
+          border: 2px solid #5a7a9a;
+          border-top-color: transparent;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        
+        .filter-toggle-btn {
+          background: none;
+          border: 2px solid #5a7a9a;
+          border-radius: 4px;
+          padding: 4px 8px;
+          cursor: pointer;
+          font-size: 14px;
+        }
+        
+        .filter-toggle-btn.active {
+          background: #5a7a9a;
+        }
+        
+        .search-filters {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 12px;
+          padding: 12px;
+          background: rgba(255,255,255,0.5);
+          border-radius: 6px;
+          margin-bottom: 15px;
+        }
+        
+        .filter-field label {
+          display: block;
+          font-size: 12px;
+          font-weight: bold;
+          color: #2d4a5f;
+          margin-bottom: 4px;
+        }
+        
+        .filter-select, .filter-input {
+          width: 100%;
+          padding: 6px 8px;
+          border: 2px solid #5a7a9a;
+          border-radius: 4px;
+          font-size: 13px;
+          font-family: Arial, Helvetica, sans-serif;
+        }
+        
+        .search-results {
+          max-height: 320px;
+          overflow-y: auto;
+          background: white;
+          border: 2px solid #5a7a9a;
+          border-radius: 6px;
+        }
+        
+        .empty-state {
+          padding: 30px;
+          text-align: center;
+          color: #5a7a9a;
+        }
+        
+        .empty-icon {
+          font-size: 36px;
+          margin-bottom: 8px;
+        }
+        
+        .empty-hint {
+          font-size: 12px;
+          margin-top: 4px;
+          opacity: 0.7;
+        }
+        
+        .result-item {
+          display: flex;
+          gap: 12px;
+          padding: 12px;
+          cursor: pointer;
+          border-bottom: 1px solid #e0e8f0;
+          transition: background 0.15s;
+        }
+        
+        .result-item:last-child {
+          border-bottom: none;
+        }
+        
+        .result-item:hover {
+          background: #e8f0f8;
+        }
+        
+        .result-item.selected {
+          background: #d0e4f4;
+        }
+        
+        .result-icon {
+          font-size: 24px;
+        }
+        
+        .result-content {
+          flex: 1;
+          min-width: 0;
+        }
+        
+        .result-header {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        
+        .result-title {
+          font-weight: bold;
+          color: #1a3a5c;
+        }
+        
+        .result-patient {
+          font-size: 13px;
+          color: #5a7a9a;
+        }
+        
+        .result-status {
+          margin-left: auto;
+          font-size: 11px;
+          padding: 2px 8px;
+          border-radius: 10px;
+          font-weight: bold;
+        }
+        
+        .result-status.complete {
+          background: #d4edda;
+          color: #155724;
+        }
+        
+        .result-status.incomplete {
+          background: #fff3cd;
+          color: #856404;
+        }
+        
+        .result-match {
+          font-size: 13px;
+          color: #2d4a5f;
+          margin-top: 4px;
+        }
+        
+        .match-field {
+          color: #7a9ab8;
+        }
+        
+        .result-meta {
+          display: flex;
+          gap: 8px;
+          font-size: 11px;
+          color: #7a9ab8;
+          margin-top: 6px;
+        }
+        
+        .search-footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 12px;
+          padding-top: 10px;
+          border-top: 1px solid rgba(90, 122, 154, 0.3);
+          font-size: 12px;
+          color: #5a7a9a;
+        }
+        
+        .keyboard-hints {
+          display: flex;
+          gap: 15px;
+        }
+        
+        .keyboard-hints kbd {
+          background: #5a7a9a;
+          color: white;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-size: 10px;
+          font-family: monospace;
+        }
+        
+        .result-count {
+          font-weight: bold;
+        }
+      `}</style>
+    </>
   );
 }

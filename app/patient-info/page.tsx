@@ -11,11 +11,23 @@ import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
 import ConnectionStatus from '../components/ConnectionStatus'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
+import ChatWidget from '../components/ChatWidget'
 import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
 export default function PatientInfoPage() {
+    // ...existing code...
+    const [showChat, setShowChat] = useState(false);
+    const [chatUnreadCount, setChatUnreadCount] = useState(0);
+    const [currentUser, setCurrentUser] = useState<{ discordId: string; callsign: string } | null>(null);
+
+    useEffect(() => {
+      const user = getCurrentUser();
+      if (user) {
+        setCurrentUser({ discordId: user.discordId, callsign: user.callsign });
+      }
+    }, []);
   const searchParams = useSearchParams()
   const router = useRouter()
   const incidentId = searchParams?.get('id') || ''
@@ -173,14 +185,9 @@ export default function PatientInfoPage() {
     setIsSubmitting(true)
     try {
       const result = await submitEPRFService(incidentId, fleetId)
-      
       if (result.success) {
         setShowSubmitModal(false)
-        setSuccessMessage({
-          title: 'ePRF Submitted Successfully!',
-          message: `The ePRF for Patient ${patientLetter} has been submitted.\n\nA PDF copy has been downloaded to your device and the record has been saved.`
-        })
-        setShowSuccessModal(true)
+        router.push('/dashboard')
       } else if (result.validationResult) {
         setShowSubmitModal(false)
         setValidationErrors(result.validationResult.fieldErrors)
@@ -342,10 +349,30 @@ export default function PatientInfoPage() {
       <div className="eprf-nav">
         <button className="nav-btn" onClick={handleHome}>Home</button>
         <button className="nav-btn" onClick={() => setShowPatientManagementModal(true)}>Manage Patients</button>
+        <button className="nav-btn" title="Version History" disabled>History</button>
+        <button className="nav-btn chat-btn" onClick={() => setShowChat(!showChat)} title="Chat" style={{ position: 'relative' }}>
+          Chat
+          {chatUnreadCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: 2,
+              left: 2,
+              width: 12,
+              height: 12,
+              background: 'red',
+              borderRadius: '50%',
+              display: 'inline-block',
+              border: '2px solid white',
+              zIndex: 2
+            }}></span>
+          )}
+        </button>
+        <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
+        <button className="nav-btn" onClick={handleLogout}>Logout</button>
+        <button className="nav-btn" onClick={() => setShowPatientManagementModal(true)}>Manage Patients</button>
         {canManageCollaborators(userPermission) && (
           <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
         )}
-        <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
         <button className="nav-btn" onClick={handleLogout}>Logout</button>
         {incidentId && patientLetter && (
           <PresenceIndicator 
@@ -886,7 +913,7 @@ export default function PatientInfoPage() {
       <div className="eprf-footer incident-footer">
         <ConnectionStatus />
         <div className="footer-left">
-          <button className="footer-btn green" onClick={handleAddPatientClick}>Add Patient</button>
+          <button className="footer-btn orange" onClick={handleAddPatientClick}>Add Patient</button>
           <button 
             className={`footer-btn green ${!canTransfer ? 'disabled' : ''}`} 
             onClick={handleTransferClick}
@@ -982,6 +1009,17 @@ export default function PatientInfoPage() {
         incidentId={incidentId}
         currentUserPermission={userPermission || 'view'}
       />
+      {/* Chat Widget */}
+      {currentUser && (
+        <ChatWidget
+          incidentId={incidentId}
+          discordId={currentUser.discordId}
+          callsign={currentUser.callsign}
+          patientLetter={patientLetter}
+          onUnreadChange={setChatUnreadCount}
+          isOpen={showChat}
+        />
+      )}
     </div>
   )
 }

@@ -16,7 +16,7 @@ import ConfirmationModal from '../components/ConfirmationModal'
 import ConnectionStatus from '../components/ConnectionStatus'
 import NotificationCenter from '../components/NotificationCenter'
 import BulkCollaboratorsModal from '../components/BulkCollaboratorsModal'
-import QuickFilters, { QuickFiltersState } from '../components/QuickFilters'
+import { QuickFiltersState } from '../components/QuickFilters'
 import SearchModal from '../components/SearchModal'
 import QuickActionsFAB from '../components/QuickActionsFAB'
 import KeyboardShortcuts from '../components/KeyboardShortcuts'
@@ -114,10 +114,10 @@ function getPatientName(incidentId: string, patientLetter: string): string {
     }
     if (data) {
       const parsed = JSON.parse(data)
-      const firstName = parsed.firstName || parsed.first_name || ''
-      const lastName = parsed.lastName || parsed.last_name || ''
-      if (firstName || lastName) {
-        return `${firstName} ${lastName}`.trim()
+      const lastName = parsed.surname || parsed.lastName || parsed.last_name || ''
+      const chiefComplaint = parsed.chiefComplaint || parsed.chief_complaint || parsed.chiefcomplaint || ''
+      if (lastName || chiefComplaint) {
+        return `${lastName} | ${chiefComplaint}`.trim()
       }
     }
   } catch {
@@ -269,20 +269,18 @@ export default function DashboardPage() {
   }, [statusFilter, dateFrom, dateTo, searchQuery])
 
   useEffect(() => {
-    const user = getCurrentUser()
-    setCurrentUser(user)
-    
-    const today = new Date()
-    const formatted = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`
-    setCaseDate(formatted)
-    
-    if (user) {
-      loadEPRFHistory(user.discordId)
-    } else {
-      // Redirect to login if not authenticated
-      router.push('/')
+    const user = getCurrentUser();
+    if (!user) {
+      // If not authenticated, force redirect to login and prevent back navigation
+      router.replace('/');
+      return;
     }
-  }, [router])
+    setCurrentUser(user);
+    const today = new Date();
+    const formatted = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
+    setCaseDate(formatted);
+    loadEPRFHistory(user.discordId);
+  }, [router]);
 
   useEffect(() => {
     if (currentUser) {
@@ -486,43 +484,103 @@ export default function DashboardPage() {
           color: white;
         }
 
-        .advanced-filters {
-          margin-top: 12px;
-          padding-top: 12px;
-          border-top: 1px solid #5a7a9a;
+        /* Filters Modal Styles */
+        .filters-modal {
+          min-width: 360px;
+          max-width: 420px;
+        }
+
+        .filter-group {
+          margin-bottom: 16px;
+        }
+
+        .filter-group:last-child {
+          margin-bottom: 0;
+        }
+
+        .filter-group-label {
+          font-size: 14px;
+          font-weight: bold;
+          color: #2d4a5f;
+          margin-bottom: 8px;
+        }
+
+        .filter-options {
           display: flex;
-          gap: 15px;
-          align-items: center;
+          gap: 16px;
           flex-wrap: wrap;
         }
 
-        .date-filter {
+        .filter-checkbox {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          color: #2d4a5f;
         }
 
-        .date-filter label {
+        .filter-checkbox input[type="checkbox"] {
+          width: 16px;
+          height: 16px;
+          accent-color: #4a6d8c;
+        }
+
+        .date-range-options {
+          display: flex;
+          gap: 6px;
+          margin-bottom: 10px;
+        }
+
+        .date-range-btn {
+          flex: 1;
+          padding: 6px 10px;
+          border: 2px solid #5a7a9a;
+          border-radius: 4px;
+          background: white;
+          font-size: 13px;
+          font-weight: bold;
+          cursor: pointer;
+          color: #2d4a5f;
+          transition: all 0.2s;
+        }
+
+        .date-range-btn:hover {
+          background: #e8f0f8;
+        }
+
+        .date-range-btn.active {
+          background: #5a7a9a;
+          color: white;
+        }
+
+        .custom-date-range {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .date-input-group {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .date-input-group label {
           font-size: 13px;
           font-weight: bold;
           color: #2d4a5f;
         }
 
-        .date-filter input {
-          padding: 6px 10px;
+        .date-input-group input {
+          padding: 5px 8px;
           border: 2px solid #5a7a9a;
           border-radius: 4px;
           font-size: 13px;
         }
 
-        .clear-filters {
-          color: #1a3a5c;
-          background: none;
-          border: none;
-          font-size: 13px;
-          font-weight: bold;
-          cursor: pointer;
-          text-decoration: underline;
+        .sort-select {
+          width: 100%;
         }
 
         .section-header {
@@ -962,9 +1020,9 @@ export default function DashboardPage() {
         {currentUser && isAdmin(currentUser.discordId) && (
           <button className="nav-btn" onClick={() => router.push('/admin')}>Admin Panel</button>
         )}
-        {currentUser && <NotificationCenter discordId={currentUser.discordId} callsign={currentUser.callsign} />}
         <button className="nav-btn" onClick={handleLogout}>Logout</button>
         <div className="page-counter">
+          {currentUser && <NotificationCenter discordId={currentUser.discordId} callsign={currentUser.callsign} />}
           <span className="patient-letter">{currentUser?.callsign || fleetId}</span>
           <span className="page-indicator">Dashboard</span>
         </div>
@@ -1004,37 +1062,134 @@ export default function DashboardPage() {
               Search
             </button>
           </div>
-          
-          {/* Quick Filters */}
-          <QuickFilters 
-            filters={quickFilters}
-            onChange={handleQuickFilterChange}
-          />
-          
-          {showFilters && (
-            <div className="advanced-filters">
-              <div className="date-filter">
-                <label>From:</label>
-                <input 
-                  type="date" 
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                />
-              </div>
-              <div className="date-filter">
-                <label>To:</label>
-                <input 
-                  type="date" 
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                />
-              </div>
-              <button className="clear-filters" onClick={clearFilters}>
-                Clear all filters
-              </button>
-            </div>
-          )}
         </div>
+
+        {/* Filters Popup Modal */}
+        {showFilters && (
+          <div className="modal-overlay" onClick={() => setShowFilters(false)}>
+            <div className="modal-dialog filters-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">Filter Options</div>
+              <div className="modal-body">
+                {/* Record Type Filters */}
+                <div className="filter-group">
+                  <div className="filter-group-label">Record Type</div>
+                  <div className="filter-options">
+                    <label className="filter-checkbox">
+                      <input 
+                        type="checkbox"
+                        checked={quickFilters.showMyRecords}
+                        onChange={() => handleQuickFilterChange({
+                          ...quickFilters,
+                          showMyRecords: !quickFilters.showMyRecords
+                        })}
+                      />
+                      <span>My Records</span>
+                    </label>
+                    <label className="filter-checkbox">
+                      <input 
+                        type="checkbox"
+                        checked={quickFilters.showSharedWithMe}
+                        onChange={() => handleQuickFilterChange({
+                          ...quickFilters,
+                          showSharedWithMe: !quickFilters.showSharedWithMe
+                        })}
+                      />
+                      <span>Shared With Me</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Status Filters */}
+                <div className="filter-group">
+                  <div className="filter-group-label">Status</div>
+                  <div className="filter-options">
+                    <label className="filter-checkbox">
+                      <input 
+                        type="checkbox"
+                        checked={quickFilters.showIncomplete}
+                        onChange={() => handleQuickFilterChange({
+                          ...quickFilters,
+                          showIncomplete: !quickFilters.showIncomplete
+                        })}
+                      />
+                      <span>In Progress</span>
+                    </label>
+                    <label className="filter-checkbox">
+                      <input 
+                        type="checkbox"
+                        checked={quickFilters.showComplete}
+                        onChange={() => handleQuickFilterChange({
+                          ...quickFilters,
+                          showComplete: !quickFilters.showComplete
+                        })}
+                      />
+                      <span>Complete</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Date Range */}
+                <div className="filter-group">
+                  <div className="filter-group-label">Date Range</div>
+                  <div className="date-range-options">
+                    {(['today', 'week', 'month', 'all'] as const).map((range) => (
+                      <button
+                        key={range}
+                        className={`date-range-btn ${quickFilters.dateRange === range ? 'active' : ''}`}
+                        onClick={() => handleQuickFilterChange({
+                          ...quickFilters,
+                          dateRange: range
+                        })}
+                      >
+                        {range === 'today' ? 'Today' : range === 'week' ? 'Week' : range === 'month' ? 'Month' : 'All'}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="custom-date-range">
+                    <div className="date-input-group">
+                      <label>From:</label>
+                      <input 
+                        type="date" 
+                        value={dateFrom}
+                        onChange={(e) => setDateFrom(e.target.value)}
+                      />
+                    </div>
+                    <div className="date-input-group">
+                      <label>To:</label>
+                      <input 
+                        type="date" 
+                        value={dateTo}
+                        onChange={(e) => setDateTo(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sort By */}
+                <div className="filter-group">
+                  <div className="filter-group-label">Sort By</div>
+                  <select
+                    className="filter-select sort-select"
+                    value={quickFilters.sortBy || 'date-desc'}
+                    onChange={(e) => handleQuickFilterChange({
+                      ...quickFilters,
+                      sortBy: e.target.value as QuickFiltersState['sortBy']
+                    })}
+                  >
+                    <option value="date-desc">Newest First</option>
+                    <option value="date-asc">Oldest First</option>
+                    <option value="incident-id">Incident ID</option>
+                    <option value="status">Status</option>
+                  </select>
+                </div>
+              </div>
+              <div className="modal-actions">
+                <button className="modal-btn cancel" onClick={clearFilters}>Clear All</button>
+                <button className="modal-btn ok" onClick={() => setShowFilters(false)}>Apply</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Bulk Selection Toolbar */}
         <div className="bulk-toolbar">
@@ -1132,38 +1287,49 @@ export default function DashboardPage() {
                     <div className="eprf-actions">
                       {group.patients.length === 1 ? (
                         <>
-                          <button 
-                            className="eprf-action-btn btn-edit"
-                            onClick={() => handleEdit(group.patients[0])}
-                          >
-                            Edit
-                          </button>
-                          <button 
-                            className="eprf-action-btn btn-delete"
-                            onClick={() => handleDeleteClick(group.patients[0])}
-                          >
-                            Delete
-                          </button>
+                          {(group.permissionLevel === 'owner' || group.permissionLevel === 'manage' || group.permissionLevel === 'edit') && (
+                            <button 
+                              className="eprf-action-btn btn-edit"
+                              onClick={() => handleEdit(group.patients[0])}
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {/* Delete for owner and patient owner only */}
+                          {(group.permissionLevel === 'owner' || (currentUser && group.patients[0].authorDiscordId === currentUser.discordId)) ? (
+                            <button 
+                              className="eprf-action-btn btn-delete"
+                              onClick={() => handleDeleteClick(group.patients[0])}
+                            >
+                              Delete
+                            </button>
+                          ) : null}
                         </>
                       ) : (
                         <>
                           {group.patients.map(patient => (
-                            <button 
-                              key={patient.patientLetter}
-                              className="eprf-action-btn btn-edit"
-                              onClick={() => handleEdit(patient)}
-                            >
-                              Edit {patient.patientLetter}
-                            </button>
-                          ))}
+                          {/* Edit for manage/edit/owner, Delete for owner and patient owner only */}
                           {group.patients.map(patient => (
-                            <button 
-                              key={`del-${patient.patientLetter}`}
-                              className="eprf-action-btn btn-delete"
-                              onClick={() => handleDeleteClick(patient)}
-                            >
-                              Delete {patient.patientLetter}
-                            </button>
+                            <>
+                              {(group.permissionLevel === 'owner' || group.permissionLevel === 'manage' || group.permissionLevel === 'edit') && (
+                                <button 
+                                  key={patient.patientLetter}
+                                  className="eprf-action-btn btn-edit"
+                                  onClick={() => handleEdit(patient)}
+                                >
+                                  Edit {patient.patientLetter}
+                                </button>
+                              )}
+                              {(group.permissionLevel === 'owner' || (currentUser && patient.authorDiscordId === currentUser.discordId)) && (
+                                <button 
+                                  key={`del-${patient.patientLetter}`}
+                                  className="eprf-action-btn btn-delete"
+                                  onClick={() => handleDeleteClick(patient)}
+                                >
+                                  Delete {patient.patientLetter}
+                                </button>
+                              )}
+                            </>
                           ))}
                         </>
                       )}

@@ -11,11 +11,24 @@ import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
 import ConnectionStatus from '../components/ConnectionStatus'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
+import { getCurrentUser, clearCurrentUser } from '../utils/userService'
+import ChatWidget from '../components/ChatWidget'
 import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
 export default function PrimarySurveyPage() {
+    // ...existing code...
+    const [showChat, setShowChat] = useState(false);
+    const [chatUnreadCount, setChatUnreadCount] = useState(0);
+    const [currentUser, setCurrentUser] = useState<{ discordId: string; callsign: string } | null>(null);
+
+    useEffect(() => {
+      const user = getCurrentUser();
+      if (user) {
+        setCurrentUser({ discordId: user.discordId, callsign: user.callsign });
+      }
+    }, []);
   const searchParams = useSearchParams()
   const router = useRouter()
   const incidentId = searchParams?.get('id') || ''
@@ -112,20 +125,15 @@ export default function PrimarySurveyPage() {
     setIsSubmitting(true)
     try {
       const result = await submitEPRFService(incidentId, fleetId)
-      
-      if (result.success) {
-        setShowSubmitModal(false)
-        setSuccessMessage({
-          title: 'ePRF Submitted Successfully!',
-          message: `The ePRF for Patient ${patientLetter} has been submitted.\n\nA PDF copy has been downloaded to your device and the record has been saved.`
-        })
-        setShowSuccessModal(true)
-      } else if (result.validationResult) {
-        setShowSubmitModal(false)
-        setValidationErrors(result.validationResult.fieldErrors)
-        setIncompleteSections(result.validationResult.incompleteSections)
-        setShowValidationErrorModal(true)
-      }
+          if (result.success) {
+            setShowSubmitModal(false)
+            router.push('/dashboard')
+          } else if (result.validationResult) {
+            setShowSubmitModal(false)
+            setValidationErrors(result.validationResult.fieldErrors)
+            setIncompleteSections(result.validationResult.incompleteSections)
+            setShowValidationErrorModal(true)
+          }
     } catch (error) {
       console.error('Submit error:', error)
       alert('An error occurred while submitting. Please try again.')
@@ -240,6 +248,24 @@ export default function PrimarySurveyPage() {
       <div className="eprf-nav">
         <button className="nav-btn" onClick={handleHome}>Home</button>
         <button className="nav-btn" onClick={() => setShowPatientManagementModal(true)}>Manage Patients</button>
+        <button className="nav-btn" onClick={() => setShowValidationErrorModal(true)}>History</button>
+        <button className="nav-btn chat-btn" onClick={() => setShowChat(!showChat)} title="Chat" style={{ position: 'relative' }}>
+          Chat
+          {chatUnreadCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: 2,
+              left: 2,
+              width: 12,
+              height: 12,
+              background: 'red',
+              borderRadius: '50%',
+              display: 'inline-block',
+              border: '2px solid white',
+              zIndex: 2
+            }}></span>
+          )}
+        </button>
         {canManageCollaborators(userPermission) && (
           <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
         )}
@@ -573,10 +599,22 @@ export default function PrimarySurveyPage() {
       <ConfirmationModal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
-        onConfirm={confirmSubmitEPRF}
-        title="Submit ePRF"
-        message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database\n• Download the PDF to your device`}
-        confirmText="Yes, Submit ePRF"
+          onConfirm={() => confirmSubmitEPRF(pdfOption)}
+          title="Submit ePRF"
+          message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database`}
+          confirmText="Yes, Submit ePRF"
+        >
+          <div className="mt-4">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={pdfOption}
+                onChange={e => setPdfOption(e.target.checked)}
+              />
+              Download PDF after submit
+            </label>
+          </div>
+        </ConfirmationModal>
         cancelText="Cancel"
         type="success"
         isLoading={isSubmitting}
@@ -634,6 +672,17 @@ export default function PrimarySurveyPage() {
         incidentId={incidentId}
         currentUserPermission={userPermission || 'view'}
       />
+      {/* Chat Widget */}
+      {currentUser && (
+        <ChatWidget
+          incidentId={incidentId}
+          discordId={currentUser.discordId}
+          callsign={currentUser.callsign}
+          patientLetter={patientLetter}
+          onUnreadChange={setChatUnreadCount}
+          isOpen={showChat}
+        />
+      )}
     </div>
   )
 }

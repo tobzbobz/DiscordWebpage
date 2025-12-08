@@ -11,6 +11,7 @@ import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
 import ConnectionStatus from '../components/ConnectionStatus'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
+import ChatWidget from '../components/ChatWidget'
 import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
@@ -22,6 +23,17 @@ interface DrawnLine {
 }
 
 export default function PastMedicalHistoryPage() {
+    // ...existing code...
+    const [showChat, setShowChat] = useState(false);
+    const [chatUnreadCount, setChatUnreadCount] = useState(0);
+    const [currentUser, setCurrentUser] = useState<{ discordId: string; callsign: string } | null>(null);
+
+    useEffect(() => {
+      const user = getCurrentUser();
+      if (user) {
+        setCurrentUser({ discordId: user.discordId, callsign: user.callsign });
+      }
+    }, []);
   const searchParams = useSearchParams()
   const router = useRouter()
   const incidentId = searchParams?.get('id') || ''
@@ -427,34 +439,47 @@ export default function PastMedicalHistoryPage() {
         }
         ctx.stroke()
 
-        // Draw label at start of line with background for readability
+        // Draw label at start of line with no background
         ctx.font = 'bold 11px Segoe UI, Tahoma, sans-serif'
-        const textWidth = ctx.measureText(line.label).width
+        ctx.letterSpacing = '1px'
         const labelX = line.labelPosition.x + 5
         const labelY = line.labelPosition.y - 5
         
-        // Draw background
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)'
-        ctx.fillRect(labelX - 2, labelY - 10, textWidth + 4, 14)
-        
-        // Draw text
+        // Draw text with slight shadow for readability
+        ctx.fillStyle = '#660000'
+        ctx.fillText(line.label, labelX + 1, labelY + 1)
         ctx.fillStyle = '#cc0000'
         ctx.fillText(line.label, labelX, labelY)
       }
     })
 
     // Draw current line being drawn
-    if (currentLine.length > 1) {
-      ctx.beginPath()
-      ctx.strokeStyle = '#cc0000'
-      ctx.lineWidth = 2
-      ctx.moveTo(currentLine[0].x, currentLine[0].y)
-      for (let i = 1; i < currentLine.length; i++) {
-        ctx.lineTo(currentLine[i].x, currentLine[i].y)
+    if (currentLine.length >= 1) {
+      // Draw label immediately at the first click point
+      ctx.font = 'bold 11px Segoe UI, Tahoma, sans-serif'
+      ctx.letterSpacing = '1px'
+      const labelX = currentLine[0].x + 5
+      const labelY = currentLine[0].y - 5
+      
+      // Draw text with slight shadow for readability
+      ctx.fillStyle = '#660000'
+      ctx.fillText(selectedInjury, labelX + 1, labelY + 1)
+      ctx.fillStyle = '#cc0000'
+      ctx.fillText(selectedInjury, labelX, labelY)
+      
+      // Draw the line if there are more points
+      if (currentLine.length > 1) {
+        ctx.beginPath()
+        ctx.strokeStyle = '#cc0000'
+        ctx.lineWidth = 2
+        ctx.moveTo(currentLine[0].x, currentLine[0].y)
+        for (let i = 1; i < currentLine.length; i++) {
+          ctx.lineTo(currentLine[i].x, currentLine[i].y)
+        }
+        ctx.stroke()
       }
-      ctx.stroke()
     }
-  }, [canvasOffset, zoom, drawnLines, currentLine])
+  }, [canvasOffset, zoom, drawnLines, currentLine, selectedInjury])
 
   useEffect(() => {
     if (currentPage === 2) {
@@ -527,29 +552,28 @@ export default function PastMedicalHistoryPage() {
     const canvas = canvasRef.current
     if (!canvas) return
     const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-    setIsDrawing(true)
-    setCurrentLine([{ x, y }])
-  }
-
-  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-    setCurrentLine(prev => [...prev, { x, y }])
-  }
-
-  const handleCanvasMouseUp = () => {
-    if (isDrawing && currentLine.length > 1) {
-      const newLine: DrawnLine = {
-        points: currentLine,
-        label: selectedInjury,
-        labelPosition: currentLine[0]
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const x = (e.clientX - rect.left) * scaleX
+    const y = (e.clientY - rect.top) * scaleY
+    setIsSubmitting(true)
+    try {
+      const result = await submitEPRFService(incidentId, fleetId, pdfOption)
+      if (result.success) {
+        setShowSubmitModal(false)
+        router.push('/dashboard')
+      } else if (result.validationResult) {
+        setShowSubmitModal(false)
+        setValidationErrors(result.validationResult.fieldErrors)
+        setIncompleteSections(result.validationResult.incompleteSections)
+        setShowValidationErrorModal(true)
       }
+    } catch (error) {
+      console.error('Submit error:', error)
+      alert('An error occurred while submitting. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
       const newLines = [...drawnLines, newLine]
       setDrawnLines(newLines)
       
@@ -776,12 +800,14 @@ export default function PastMedicalHistoryPage() {
         }
 
         .canvas-toolbar {
-          display: flex;
-          gap: 8px;
-          padding: 8px 12px;
-          background: linear-gradient(to bottom, #4a6a8c, #3a5a7c);
-          border-radius: 5px;
-          align-items: center;
+           display: flex;
+           gap: 20px;
+           padding: 12px 20px;
+           background: linear-gradient(to bottom, #4a6a8c, #3a5a7c);
+           border-radius: 5px;
+           align-items: center;
+           justify-content: center;
+           flex-wrap: nowrap;
         }
 
         .toolbar-btn {
@@ -884,9 +910,24 @@ export default function PastMedicalHistoryPage() {
       <div className="eprf-nav">
         <button className="nav-btn" onClick={handleHome}>Home</button>
         <button className="nav-btn" onClick={() => setShowPatientManagementModal(true)}>Manage Patients</button>
-        {canManageCollaborators(userPermission) && (
-          <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
-        )}
+        <button className="nav-btn" onClick={() => setShowValidationErrorModal(true)}>History</button>
+        <button className="nav-btn chat-btn" onClick={() => setShowChat(!showChat)} title="Chat" style={{ position: 'relative' }}>
+          Chat
+          {chatUnreadCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: 2,
+              left: 2,
+              width: 12,
+              height: 12,
+              background: 'red',
+              borderRadius: '50%',
+              display: 'inline-block',
+              border: '2px solid white',
+              zIndex: 2
+            }}></span>
+          )}
+        </button>
         <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
         <button className="nav-btn" onClick={handleLogout}>Logout</button>
         {incidentId && patientLetter && (
@@ -921,7 +962,7 @@ export default function PastMedicalHistoryPage() {
           {currentPage === 1 && (
             <>
           {/* Past medical history */}
-          <div className="form-row">
+          <div className="form-row" style={{ marginBottom: '25px' }}>
             <div className="form-field">
               <label className={`field-label required ${hasFieldError('pastMedicalHistory') ? 'validation-error-label' : ''}`}>Past medical history</label>
               <div className={`radio-group ${hasFieldError('pastMedicalHistory') ? 'validation-error-radio' : ''}`}>
@@ -970,7 +1011,7 @@ export default function PastMedicalHistoryPage() {
           </div>
 
           {/* Medications */}
-          <div className="form-row">
+          <div className="form-row" style={{ marginBottom: '25px' }}>
             <div className="form-field">
               <label className={`field-label required ${hasFieldError('medications') ? 'validation-error-label' : ''}`}>Medications</label>
               <div className={`radio-group ${hasFieldError('medications') ? 'validation-error-radio' : ''}`}>
@@ -1009,7 +1050,7 @@ export default function PastMedicalHistoryPage() {
           </div>
 
           {/* Allergies */}
-          <div className="form-row">
+          <div className="form-row" style={{ marginBottom: '25px' }}>
             <div className="form-field">
               <label className={`field-label required ${hasFieldError('allergies') ? 'validation-error-label' : ''}`}>Allergies</label>
               <div className={`radio-group ${hasFieldError('allergies') ? 'validation-error-radio' : ''}`}>
@@ -1048,10 +1089,10 @@ export default function PastMedicalHistoryPage() {
           </div>
 
           {/* Last oral intake */}
-          <div className="form-row">
+          <div className="form-row" style={{ marginBottom: '25px' }}>
             <div className="form-field">
               <label className={`field-label required ${hasFieldError('lastOralIntake') ? 'validation-error-label' : ''}`}>Last oral intake</label>
-              <div className={`radio-group ${hasFieldError('lastOralIntake') ? 'validation-error-radio' : ''}`}>
+              <div className={`radio-group ${hasFieldError('lastOralIntake') ? 'validation-error-radio' : ''}`} style={{ alignItems: 'center' }}>
                 <label className="radio-option">
                   <input
                     type="radio"
@@ -1072,22 +1113,32 @@ export default function PastMedicalHistoryPage() {
                   />
                   Other
                 </label>
+                <label className="radio-option" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <input
+                    type="radio"
+                    name="lastOralIntake"
+                    value="Filled"
+                    checked={formData.lastOralIntake === 'Filled'}
+                    onChange={(e) => handleRadioChange('lastOralIntake', e.target.value)}
+                  />
+                  Filled
+                </label>
+                {formData.lastOralIntake === 'Filled' && (
+                  <div className="time-field" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '15px' }}>
+                    <label className="field-label" style={{ marginBottom: 0 }}>Time:</label>
+                    <input
+                      type="text"
+                      className="time-input"
+                      value={formData.lastOralIntakeTime}
+                      onClick={openTimePicker}
+                      readOnly
+                      placeholder=""
+                      style={{ width: '80px' }}
+                    />
+                    <button className="now-btn" onClick={handleSetTimeNow}>Now</button>
+                  </div>
+                )}
               </div>
-            </div>
-
-            <div className="time-field">
-              <div className="time-label-row">
-                <label className="field-label">Time</label>
-                <button className="now-btn" onClick={handleSetTimeNow}>Now</button>
-              </div>
-              <input
-                type="text"
-                className="time-input"
-                value={formData.lastOralIntakeTime}
-                onClick={openTimePicker}
-                readOnly
-                placeholder=""
-              />
             </div>
           </div>
             </>
@@ -1222,14 +1273,25 @@ export default function PastMedicalHistoryPage() {
       <ConfirmationModal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
-        onConfirm={confirmSubmitEPRF}
-        title="Submit ePRF"
-        message={`Are you sure you want to submit the ePRF for Patient ${patientLetter}?\n\nThis will:\n• Generate a PDF copy for your records\n• Submit the data to the server\n• Mark this ePRF as complete`}
-        confirmText="Yes, Submit ePRF"
-        cancelText="Cancel"
-        type="success"
-        isLoading={isSubmitting}
-      />
+          onConfirm={() => confirmSubmitEPRF(pdfOption)}
+          title="Submit ePRF"
+          message={`Are you sure you want to submit the ePRF for Patient ${patientLetter}?\n\nThis will:\n Generate a PDF copy for your records\n Submit the data to the server`}
+          confirmText="Yes, Submit ePRF"
+          cancelText="Cancel"
+          type="success"
+          isLoading={isSubmitting}
+        >
+          <div className="mt-4">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={pdfOption}
+                onChange={e => setPdfOption(e.target.checked)}
+              />
+              Download PDF after submit
+            </label>
+          </div>
+        </ConfirmationModal>
 
       <ValidationErrorModal
         isOpen={showValidationErrorModal}
@@ -1283,6 +1345,17 @@ export default function PastMedicalHistoryPage() {
         incidentId={incidentId}
         currentUserPermission={userPermission || 'view'}
       />
+      {/* Chat Widget */}
+      {currentUser && (
+        <ChatWidget
+          incidentId={incidentId}
+          discordId={currentUser.discordId}
+          callsign={currentUser.callsign}
+          patientLetter={patientLetter}
+          onUnreadChange={setChatUnreadCount}
+          isOpen={showChat}
+        />
+      )}
     </div>
   )
 }
