@@ -558,27 +558,39 @@ export default function PastMedicalHistoryPage() {
     const scaleY = canvas.height / rect.height
     const x = (e.clientX - rect.left) * scaleX
     const y = (e.clientY - rect.top) * scaleY
-    setIsSubmitting(true)
-    submitEPRFService(incidentId, fleetId)
-      .then(result => {
-        if (result.success) {
-          setShowSubmitModal(false)
-          router.push('/dashboard')
-        } else if (result.validationResult) {
-          setShowSubmitModal(false)
-          setValidationErrors(result.validationResult.fieldErrors)
-          setIncompleteSections(result.validationResult.incompleteSections)
-          setShowValidationErrorModal(true)
-        }
-      })
-      .catch(error => {
-        console.error('Submit error:', error)
-        alert('An error occurred while submitting. Please try again.')
-      })
-      .finally(() => {
-        setIsSubmitting(false)
-      })
-      // Drawing logic removed: 'newLine' is not defined in this scope
+    
+    setIsDrawing(true)
+    setCurrentLine([{ x, y }])
+  }
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const x = (e.clientX - rect.left) * scaleX
+    const y = (e.clientY - rect.top) * scaleY
+    
+    setCurrentLine(prev => [...prev, { x, y }])
+  }
+
+  const handleCanvasMouseUp = () => {
+    if (isDrawing && currentLine.length > 1) {
+      const newLine: DrawnLine = {
+        points: currentLine,
+        label: selectedInjury,
+        labelPosition: currentLine[0]
+      }
+      const newLines = [...drawnLines, newLine]
+      setDrawnLines(newLines)
+      
+      // Update history
+      const newHistory = history.slice(0, historyIndex + 1)
+      newHistory.push(newLines)
+      setHistory(newHistory)
+      setHistoryIndex(newHistory.length - 1)
     }
     setIsDrawing(false)
     setCurrentLine([])
@@ -622,6 +634,50 @@ export default function PastMedicalHistoryPage() {
     </div>
   );
 }
+      }
+    </div>
+  );
+}
+      }
+    </div>
+  );
+}
+          margin-bottom: 20px;
+          align-items: flex-start;
+        }
+        
+        .form-field {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+        
+        .field-label {
+          color: #1a3a5c;
+          font-size: 14px;
+          font-weight: 500;
+        }
+        
+        .field-label.required::after {
+          content: '*';
+          color: #cc0000;
+          margin-left: 2px;
+        }
+        
+        .radio-group {
+          display: flex;
+          gap: 40px;
+          align-items: center;
+        }
+        
+        .radio-option {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: #1a3a5c;
+          font-size: 14px;
+          cursor: pointer;
+        }
         
         .radio-option input[type="radio"] {
           width: 18px;
