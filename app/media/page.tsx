@@ -25,46 +25,6 @@ interface MediaItem {
 }
 
 export default function MediaPage() {
-        // Navigation handler for sidebar
-        const navigateTo = (section: string) => {
-          router.push(`/${section}?id=${incidentId}&fleetId=${fleetId}`)
-        }
-
-        // Discard selected media
-        const handleDiscard = () => {
-          if (selectedMedia) {
-            setMediaItems(prev => prev.filter(item => item.id !== selectedMedia))
-            setSelectedMedia(null)
-            setRenamingId(null)
-          }
-        }
-
-        // Select media item
-        const handleSelectMedia = (id: string) => {
-          setSelectedMedia(id)
-          setRenamingId(null)
-        }
-
-        // Start renaming media item
-        const handleRenameStart = (item: MediaItem) => {
-          setRenamingId(item.id)
-          setRenameValue(item.name)
-        }
-
-        // Transfer patient handler
-        const handleTransferClick = () => {
-          setShowTransferModal(true)
-        }
-
-        // Transfer complete handler
-        const handleTransferComplete = () => {
-          setShowTransferModal(false)
-          setSuccessMessage({ title: 'Transfer Complete', message: 'Patient record transferred successfully.' })
-          setShowSuccessModal(true)
-        }
-      // ...existing code...
-        // PDF download option state
-        const [pdfOption, setPdfOption] = useState(false)
       const [showChat, setShowChat] = useState(false);
       const [chatUnreadCount, setChatUnreadCount] = useState(0);
       const [currentUser, setCurrentUser] = useState<{ discordId: string; callsign: string } | null>(null);
@@ -171,6 +131,7 @@ export default function MediaPage() {
   }, [incidentId])
 
   // Load saved data on mount
+// Load saved data on mount
   useEffect(() => {
     if (incidentId) {
       const saved = localStorage.getItem(`media_${incidentId}`)
@@ -178,6 +139,12 @@ export default function MediaPage() {
         try {
           const parsed = JSON.parse(saved)
           setMediaItems(parsed)
+        } catch (e) {
+          console.error('Failed to load saved media:', e)
+        }
+      }
+    }
+  }, [incidentId])
 
   const handlePrevious = () => {
     navigateTo('disposition')
@@ -323,8 +290,13 @@ export default function MediaPage() {
         }
 
         mediaRecorder.start()
-        setIsSubmitting(true)
-        // ...existing code...
+        setIsRecording(true)
+      } catch (error) {
+        console.error('Error accessing microphone:', error)
+        alert('Could not access microphone. Please check permissions.')
+      }
+    }
+  }
 
   // Rename confirm (on blur or Enter)
   const handleRenameConfirm = () => {
@@ -344,6 +316,44 @@ export default function MediaPage() {
   };
   const getSelectedMediaItem = () => {
     return mediaItems.find(item => item.id === selectedMedia)
+  }
+
+  // Navigation handler for sidebar
+  const navigateTo = (section: string) => {
+    router.push(`/${section}?id=${incidentId}&fleetId=${fleetId}`)
+  }
+
+  // Discard selected media
+  const handleDiscard = () => {
+    if (selectedMedia) {
+      setMediaItems(prev => prev.filter(item => item.id !== selectedMedia))
+      setSelectedMedia(null)
+      setRenamingId(null)
+    }
+  }
+
+  // Select media item
+  const handleSelectMedia = (id: string) => {
+    setSelectedMedia(id)
+    setRenamingId(null)
+  }
+
+  // Start renaming media item
+  const handleRenameStart = (item: MediaItem) => {
+    setRenamingId(item.id)
+    setRenameValue(item.name)
+  }
+
+  // Transfer patient handler
+  const handleTransferClick = () => {
+    setShowTransferModal(true)
+  }
+
+  // Transfer complete handler
+  const handleTransferComplete = () => {
+    setShowTransferModal(false)
+    setSuccessMessage({ title: 'Transfer Complete', message: 'Patient record transferred successfully.' })
+    setShowSuccessModal(true)
   }
 
   return (
