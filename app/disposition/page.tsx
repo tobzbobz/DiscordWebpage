@@ -33,6 +33,8 @@ export default function DispositionPage() {
   const incidentId = searchParams?.get('id') || ''
   const fleetId = searchParams?.get('fleetId') || ''
 
+  const [pdfOption, setPdfOption] = useState(true);
+
   const [incompleteSections, setIncompleteSections] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const totalPages = 2
@@ -207,31 +209,31 @@ export default function DispositionPage() {
     }
   }
 
-  const confirmSubmitEPRF = async () => {
-    setIsSubmitting(true)
-    try {
-      const result = await submitEPRFService(incidentId, fleetId)
-      
-      if (result.success) {
-        setShowSubmitModal(false)
-        setSuccessMessage({
-          title: 'ePRF Submitted Successfully!',
-          message: `The ePRF for Patient ${patientLetter} has been submitted.\n\nA PDF copy has been downloaded to your device and the record has been saved.`
-        })
-        setShowSuccessModal(true)
-      } else if (result.validationResult) {
-        setShowSubmitModal(false)
-        setValidationErrors(result.validationResult.fieldErrors)
-        setIncompleteSections(result.validationResult.incompleteSections)
-        setShowValidationErrorModal(true)
-      }
-    } catch (error) {
-      console.error('Submit error:', error)
-      alert('An error occurred while submitting. Please try again.')
-    } finally {
-      setIsSubmitting(false)
+const confirmSubmitEPRF = async () => {
+  setIsSubmitting(true)
+  try {
+    const result = await submitEPRFService(incidentId, fleetId, pdfOption)
+    
+    if (result.success) {
+      setShowSubmitModal(false)
+      setSuccessMessage({
+        title: 'ePRF Submitted Successfully!',
+        message: `The ePRF for Patient ${patientLetter} has been submitted.\n\n${pdfOption ? 'A PDF copy has been downloaded to your device and the record has been saved.' : 'The record has been saved.'}`
+      })
+      setShowSuccessModal(true)
+    } else if (result.validationResult) {
+      setShowSubmitModal(false)
+      setValidationErrors(result.validationResult.fieldErrors)
+      setIncompleteSections(result.validationResult.incompleteSections)
+      setShowValidationErrorModal(true)
     }
+  } catch (error) {
+    console.error('Submit error:', error)
+    alert('An error occurred while submitting. Please try again.')
+  } finally {
+    setIsSubmitting(false)
   }
+}
 
   const handleAddPatientClick = () => {
     setShowAddPatientModal(true)
@@ -1069,29 +1071,32 @@ export default function DispositionPage() {
         isLoading={isSubmitting}
       />
 
-      {/* Submit ePRF Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={showSubmitModal}
-        onClose={() => setShowSubmitModal(false)}
-          onConfirm={() => confirmSubmitEPRF(pdfOption)}
-          title="Submit ePRF"
-          message={`Are you sure you want to submit this ePRF?\n\nThis will:\n Generate a PDF report for Patient ${patientLetter}\n Save the record to the database`}
-          confirmText="Yes, Submit ePRF"
-          cancelText="Cancel"
-          type="success"
-          isLoading={isSubmitting}
-        >
-          <div className="mt-4">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={pdfOption}
-                onChange={e => setPdfOption(e.target.checked)}
-              />
-              Download PDF after submit
-            </label>
-          </div>
-        </ConfirmationModal>
+    {/* Submit ePRF Confirmation Modal */}
+    <ConfirmationModal
+      isOpen={showSubmitModal}
+      onClose={() => setShowSubmitModal(false)}
+      onConfirm={() => confirmSubmitEPRF()}
+      title="Submit ePRF"
+      message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database\n\n${pdfOption ? '✓ PDF will be downloaded after submit' : '✗ PDF download disabled'}\n\nClick the checkbox below to toggle PDF download:`}
+      confirmText="Yes, Submit ePRF"
+      cancelText="Cancel"
+      type="success"
+      isLoading={isSubmitting}
+    />
+
+    {/* Add a separate checkbox modal if needed, or handle it in a custom way */}
+    {showSubmitModal && (
+      <div style={{ position: 'fixed', bottom: '200px', left: '50%', transform: 'translateX(-50%)', zIndex: 10001, background: 'white', padding: '10px', borderRadius: '5px', boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={pdfOption}
+            onChange={e => setPdfOption(e.target.checked)}
+         />
+          <span style={{ fontSize: '14px', color: '#1a3a5c' }}>Download PDF after submit</span>
+        </label>
+      </div>
+    )}
 
       {/* Validation Error Modal */}
       <ValidationErrorModal
