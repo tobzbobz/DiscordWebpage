@@ -302,10 +302,10 @@ export default function MediaPage() {
           console.error('Submit error:', error)
           alert('An error occurred while submitting. Please try again.')
         } finally {
-          setIsSubmitting(false)
-        }
-    setRenameValue(item.name);
-  };
+           setIsSubmitting(false);
+         }
+     setRenameValue(item.name);
+   }
 
   // Rename confirm (on blur or Enter)
   const handleRenameConfirm = () => {

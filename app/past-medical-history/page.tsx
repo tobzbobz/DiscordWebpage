@@ -557,23 +557,25 @@ export default function PastMedicalHistoryPage() {
     const x = (e.clientX - rect.left) * scaleX
     const y = (e.clientY - rect.top) * scaleY
     setIsSubmitting(true)
-    try {
-      const result = await submitEPRFService(incidentId, fleetId, pdfOption)
-      if (result.success) {
-        setShowSubmitModal(false)
-        router.push('/dashboard')
-      } else if (result.validationResult) {
-        setShowSubmitModal(false)
-        setValidationErrors(result.validationResult.fieldErrors)
-        setIncompleteSections(result.validationResult.incompleteSections)
-        setShowValidationErrorModal(true)
-      }
-    } catch (error) {
-      console.error('Submit error:', error)
-      alert('An error occurred while submitting. Please try again.')
-    } finally {
-      setIsSubmitting(false)
-    }
+    submitEPRFService(incidentId, fleetId, pdfOption)
+      .then(result => {
+        if (result.success) {
+          setShowSubmitModal(false)
+          router.push('/dashboard')
+        } else if (result.validationResult) {
+          setShowSubmitModal(false)
+          setValidationErrors(result.validationResult.fieldErrors)
+          setIncompleteSections(result.validationResult.incompleteSections)
+          setShowValidationErrorModal(true)
+        }
+      })
+      .catch(error => {
+        console.error('Submit error:', error)
+        alert('An error occurred while submitting. Please try again.')
+      })
+      .finally(() => {
+        setIsSubmitting(false)
+      })
       const newLines = [...drawnLines, newLine]
       setDrawnLines(newLines)
       

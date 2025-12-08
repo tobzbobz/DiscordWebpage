@@ -65,7 +65,7 @@ function NumericInput({ value, onChange, className = '', step = 1, min, max, pla
         ref={inputRef}
         type="number"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={e => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
         className={className}
         placeholder={placeholder}
