@@ -622,14 +622,6 @@ export default function PastMedicalHistoryPage() {
     </div>
   );
 }
-      }
-    </div>
-  );
-}
-      }
-    </div>
-  );
-}
           margin-bottom: 20px;
           align-items: flex-start;
         }

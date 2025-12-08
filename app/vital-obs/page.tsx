@@ -85,7 +85,6 @@ function NumericInput({ value, onChange, className = '', step = 1, min, max, pla
       )}
     </div>
   );
-  )
 }
 
 export default function VitalObsPage() {
