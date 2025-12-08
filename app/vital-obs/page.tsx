@@ -823,7 +823,7 @@ export default function VitalObsPage() {
     setMedDrawnUpNotUsed(false)
     setMedBrokenAmpoule(false)
     setMedDiscarded(false)
-    setMedNotPossible(false)
+    setMedNotPossible('')
     setMedNotPossibleReason('')
     setMedSearchQuery('')
     setMedValidationErrors({})
