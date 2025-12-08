@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import "./globals.css"
+import GlobalWrapper from "./components/GlobalWrapper"
 
 export const metadata: Metadata = {
   title: "Discord Login",
@@ -13,7 +14,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <GlobalWrapper>
+          {children}
+        </GlobalWrapper>
+      </body>
     </html>
   )
 }

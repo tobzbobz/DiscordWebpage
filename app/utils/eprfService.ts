@@ -79,8 +79,10 @@ function clearPatientData(incidentId: string): void {
     'clinical_impression',
     'disposition',
     'vitals',
-    'medications',
-    'interventions'
+    'meds',
+    'interventions',
+    'media',
+    'competency'
   ]
   
   keys.forEach(key => {
@@ -90,7 +92,7 @@ function clearPatientData(incidentId: string): void {
   // Also clear any draft data
   const draftKeys = [
     'vitals_draft',
-    'medications_draft',
+    'meds_draft',
     'interventions_draft'
   ]
   

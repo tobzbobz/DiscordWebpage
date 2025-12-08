@@ -6,8 +6,12 @@ import { validateAllSections, getSectionDisplayName } from '../utils/validation'
 import { handleAddPatient as addPatientService, handleSubmitEPRF as submitEPRFService, getCurrentPatientLetter } from '../utils/eprfService'
 import ConfirmationModal, { ValidationErrorModal, SuccessModal } from '../components/ConfirmationModal'
 import TransferModal from '../components/TransferModal'
-import { getCurrentUser } from '../utils/userService'
-import { isAdmin } from '../utils/apiClient'
+import PatientManagementModal from '../components/PatientManagementModal'
+import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
+import ConnectionStatus from '../components/ConnectionStatus'
+import PresenceIndicator from '../components/PresenceIndicator'
+import { getCurrentUser, clearCurrentUser } from '../utils/userService'
+import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
@@ -32,9 +36,29 @@ export default function PastMedicalHistoryPage() {
   const [showValidationErrorModal, setShowValidationErrorModal] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [showTransferModal, setShowTransferModal] = useState(false)
+  const [showPatientManagementModal, setShowPatientManagementModal] = useState(false)
+  const [showCollaboratorsModal, setShowCollaboratorsModal] = useState(false)
   const [validationErrors, setValidationErrors] = useState<{[section: string]: string[]}>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState({ title: '', message: '' })
+  const [userPermission, setUserPermission] = useState<PermissionLevel | null>(null)
+  const [canTransfer, setCanTransfer] = useState(false)
+
+  // Check user permission for this ePRF
+  useEffect(() => {
+    async function checkPermission() {
+      const user = getCurrentUser()
+      if (incidentId && user) {
+        const access = await checkEPRFAccess(incidentId, user.discordId)
+        setUserPermission(access.permission)
+        
+        // Check if user can transfer the current patient
+        const transferAllowed = await checkCanTransferPatient(incidentId, patientLetter, user.discordId)
+        setCanTransfer(transferAllowed)
+      }
+    }
+    checkPermission()
+  }, [incidentId, patientLetter])
 
   const [currentPage, setCurrentPage] = useState(1)
   const [formData, setFormData] = useState({
@@ -109,7 +133,8 @@ export default function PastMedicalHistoryPage() {
   }, [formData, drawnLines, incidentId])
 
   const handleLogout = () => {
-    router.push('/')
+    clearCurrentUser()
+    router.replace('/')
   }
 
   const handleHome = () => {
@@ -402,10 +427,19 @@ export default function PastMedicalHistoryPage() {
         }
         ctx.stroke()
 
-        // Draw label at start of line
+        // Draw label at start of line with background for readability
+        ctx.font = 'bold 11px Segoe UI, Tahoma, sans-serif'
+        const textWidth = ctx.measureText(line.label).width
+        const labelX = line.labelPosition.x + 5
+        const labelY = line.labelPosition.y - 5
+        
+        // Draw background
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)'
+        ctx.fillRect(labelX - 2, labelY - 10, textWidth + 4, 14)
+        
+        // Draw text
         ctx.fillStyle = '#cc0000'
-        ctx.font = '12px Arial'
-        ctx.fillText(line.label, line.labelPosition.x + 5, line.labelPosition.y - 5)
+        ctx.fillText(line.label, labelX, labelY)
       }
     })
 
@@ -448,16 +482,6 @@ export default function PastMedicalHistoryPage() {
             e.preventDefault()
             handleClear()
             break
-          case '+':
-          case '=':
-            e.preventDefault()
-            handleZoomIn()
-            break
-          case '-':
-          case '_':
-            e.preventDefault()
-            handleZoomOut()
-            break
           case ' ':
             e.preventDefault()
             handleCenter()
@@ -466,20 +490,32 @@ export default function PastMedicalHistoryPage() {
         return
       }
       
+      // Zoom shortcuts (no modifier needed)
+      if (e.key === '+' || e.key === '=') {
+        e.preventDefault()
+        handleZoomIn()
+        return
+      }
+      if (e.key === '-' || e.key === '_') {
+        e.preventDefault()
+        handleZoomOut()
+        return
+      }
+      
       // Arrow key navigation (without Ctrl)
       const step = 20
       switch (e.key) {
         case 'ArrowUp':
-          setCanvasOffset(prev => ({ ...prev, y: prev.y + step }))
-          break
-        case 'ArrowDown':
           setCanvasOffset(prev => ({ ...prev, y: prev.y - step }))
           break
+        case 'ArrowDown':
+          setCanvasOffset(prev => ({ ...prev, y: prev.y + step }))
+          break
         case 'ArrowLeft':
-          setCanvasOffset(prev => ({ ...prev, x: prev.x + step }))
+          setCanvasOffset(prev => ({ ...prev, x: prev.x - step }))
           break
         case 'ArrowRight':
-          setCanvasOffset(prev => ({ ...prev, x: prev.x - step }))
+          setCanvasOffset(prev => ({ ...prev, x: prev.x + step }))
           break
       }
     }
@@ -529,10 +565,10 @@ export default function PastMedicalHistoryPage() {
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.2, 3))
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.2, 0.5))
-  const handleMoveUp = () => setCanvasOffset(prev => ({ ...prev, y: prev.y + 30 }))
-  const handleMoveDown = () => setCanvasOffset(prev => ({ ...prev, y: prev.y - 30 }))
-  const handleMoveLeft = () => setCanvasOffset(prev => ({ ...prev, x: prev.x + 30 }))
-  const handleMoveRight = () => setCanvasOffset(prev => ({ ...prev, x: prev.x - 30 }))
+  const handleMoveUp = () => setCanvasOffset(prev => ({ ...prev, y: prev.y - 30 }))
+  const handleMoveDown = () => setCanvasOffset(prev => ({ ...prev, y: prev.y + 30 }))
+  const handleMoveLeft = () => setCanvasOffset(prev => ({ ...prev, x: prev.x - 30 }))
+  const handleMoveRight = () => setCanvasOffset(prev => ({ ...prev, x: prev.x + 30 }))
   const handleCenter = () => setCanvasOffset({ x: 0, y: 0 })
   
   const handleUndo = () => {
@@ -556,101 +592,8 @@ export default function PastMedicalHistoryPage() {
   }
 
   return (
-    <div className="container">
+    <div className="eprf-dashboard incident-page">
       <style jsx>{`
-        .container {
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-          background: #5a7ca5;
-        }
-        
-        .header {
-          display: flex;
-          background: linear-gradient(to bottom, #3a5a7c, #2d4a6c);
-          padding: 0;
-        }
-        
-        .nav-btn {
-          padding: 8px 16px;
-          background: linear-gradient(to bottom, #4a6a8c, #3a5a7c);
-          color: white;
-          border: 1px solid #2d4a6c;
-          cursor: pointer;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 2px;
-          min-width: 80px;
-        }
-        
-        .nav-btn:hover {
-          background: linear-gradient(to bottom, #5a7a9c, #4a6a8c);
-        }
-        
-        .nav-icon {
-          font-size: 16px;
-        }
-        
-        .nav-text {
-          font-size: 11px;
-        }
-        
-        .header-right {
-          margin-left: auto;
-          display: flex;
-          align-items: center;
-          padding-right: 10px;
-        }
-        
-        .patient-counter {
-          color: white;
-          font-size: 14px;
-        }
-        
-        .patient-letter {
-          color: #ff6b6b;
-          font-size: 18px;
-          font-weight: bold;
-        }
-        
-        .main-content {
-          display: flex;
-          flex: 1;
-        }
-        
-        .sidebar {
-          width: 160px;
-          background: linear-gradient(to bottom, #4a6a8c, #3a5a7c);
-          display: flex;
-          flex-direction: column;
-        }
-        
-        .sidebar-btn {
-          padding: 12px 8px;
-          background: transparent;
-          color: white;
-          border: none;
-          border-bottom: 1px solid #2d4a6c;
-          cursor: pointer;
-          text-align: left;
-          font-size: 13px;
-        }
-        
-        .sidebar-btn:hover {
-          background: rgba(255,255,255,0.1);
-        }
-        
-        .sidebar-btn.active {
-          background: #5a7ca5;
-        }
-        
-        .content-area {
-          flex: 1;
-          padding: 15px 20px;
-          overflow-y: auto;
-        }
-        
         .form-row {
           display: flex;
           gap: 30px;
@@ -736,67 +679,6 @@ export default function PastMedicalHistoryPage() {
         .time-input:focus {
           outline: none;
           border-color: #5a8ab8;
-        }
-        
-        .footer {
-          display: flex;
-          background: linear-gradient(to bottom, #4a6a8c, #3a5a7c);
-          padding: 8px;
-          gap: 5px;
-        }
-        
-        .footer-btn {
-          padding: 8px 16px;
-          background: linear-gradient(to bottom, #5a7a9c, #4a6a8c);
-          color: white;
-          border: 1px solid #2d4a6c;
-          border-radius: 3px;
-          cursor: pointer;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 2px;
-          min-width: 80px;
-        }
-        
-        .footer-btn:hover {
-          background: linear-gradient(to bottom, #6a8aac, #5a7a9c);
-        }
-        
-        .footer-right {
-          margin-left: auto;
-          display: flex;
-          gap: 10px;
-        }
-        
-        .prev-btn {
-          padding: 10px 25px;
-          background: linear-gradient(to bottom, #d4a84b, #c49a3d);
-          color: white;
-          border: 1px solid #a67c00;
-          border-radius: 3px;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 500;
-        }
-        
-        .prev-btn:hover {
-          background: linear-gradient(to bottom, #e4b85b, #d4a84b);
-        }
-        
-        .next-btn {
-          padding: 10px 30px;
-          background: linear-gradient(to bottom, #d4a84b, #c49a3d);
-          color: white;
-          border: 1px solid #a67c00;
-          border-radius: 3px;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 500;
-        }
-        
-        .next-btn:hover {
-          background: linear-gradient(to bottom, #e4b85b, #d4a84b);
         }
         
         .modal-overlay {
@@ -920,11 +802,7 @@ export default function PastMedicalHistoryPage() {
           background: linear-gradient(to bottom, #6a8aac, #5a7a9c);
         }
 
-        .back-label {
-          color: white;
-          font-size: 14px;
-          margin-left: 5px;
-        }
+
 
         .canvas-wrapper {
           flex: 1;
@@ -946,7 +824,7 @@ export default function PastMedicalHistoryPage() {
           padding: 8px 12px;
           background: linear-gradient(to bottom, #4a6a8c, #3a5a7c);
           border-radius: 5px;
-          justify-content: center;
+          justify-content: space-evenly;
         }
 
         .nav-arrow-btn {
@@ -1003,34 +881,31 @@ export default function PastMedicalHistoryPage() {
         }
       `}</style>
 
-      <header className="header">
-        <button className="nav-btn" onClick={handleHome}>
-          <span className="nav-icon">🏠</span>
-          <span className="nav-text">Home</span>
-        </button>
-        <button className="nav-btn">
-          <span className="nav-icon">✂️</span>
-          <span className="nav-text">Tools</span>
-        </button>
-        <button className="nav-btn" onClick={handleAdminPanel}>
-          <span className="nav-icon">📋</span>
-          <span className="nav-text">Admin Panel</span>
-        </button>
-        <button className="nav-btn" onClick={handleLogout}>
-          <span className="nav-icon">👥</span>
-          <span className="nav-text">Manage Crew</span>
-        </button>
-        <div className="header-right">
-          <div className="patient-counter">
-            <span className="patient-letter">{patientLetter}</span>
-            <br />
-            {currentPage} of 2
-          </div>
+      <div className="eprf-nav">
+        <button className="nav-btn" onClick={handleHome}>Home</button>
+        <button className="nav-btn" onClick={() => setShowPatientManagementModal(true)}>Manage Patients</button>
+        {canManageCollaborators(userPermission) && (
+          <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
+        )}
+        <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
+        <button className="nav-btn" onClick={handleLogout}>Logout</button>
+        {incidentId && patientLetter && (
+          <PresenceIndicator 
+            incidentId={incidentId}
+            patientLetter={patientLetter}
+            userDiscordId={getCurrentUser()?.discordId || ''}
+            userCallsign={getCurrentUser()?.callsign || ''}
+            pageName="past-medical-history"
+          />
+        )}
+        <div className="page-counter">
+          <span className="patient-letter">{patientLetter}</span>
+          <span className="page-indicator">{currentPage} of 2</span>
         </div>
-      </header>
+      </div>
 
-      <div className="main-content">
-        <nav className="sidebar">
+      <div className="incident-layout">
+        <aside className="sidebar">
           <button className={`sidebar-btn${incompleteSections.includes('incident') ? ' incomplete' : ''}`} onClick={() => navigateTo('incident')}>Incident Information</button>
           <button className={`sidebar-btn${incompleteSections.includes('patient-info') ? ' incomplete' : ''}`} onClick={() => navigateTo('patient-info')}>Patient Information</button>
           <button className={`sidebar-btn${incompleteSections.includes('primary-survey') ? ' incomplete' : ''}`} onClick={() => navigateTo('primary-survey')}>Primary Survey</button>
@@ -1040,9 +915,9 @@ export default function PastMedicalHistoryPage() {
           <button className={`sidebar-btn${incompleteSections.includes('clinical-impression') ? ' incomplete' : ''}`} onClick={() => navigateTo('clinical-impression')}>Clinical Impression</button>
           <button className={`sidebar-btn${incompleteSections.includes('disposition') ? ' incomplete' : ''}`} onClick={() => navigateTo('disposition')}>Disposition</button>
           <button className="sidebar-btn" onClick={() => navigateTo('media')}>Media</button>
-        </nav>
+        </aside>
 
-        <main className="content-area">
+        <main className="incident-content">
           {currentPage === 1 && (
             <>
           {/* Past medical history */}
@@ -1227,7 +1102,6 @@ export default function PastMedicalHistoryPage() {
                   <button className="toolbar-btn" onClick={handleUndo} title="Undo">↩</button>
                   <button className="toolbar-btn" onClick={handleRedo} title="Redo">↪</button>
                   <button className="toolbar-btn" onClick={handleClear} title="Clear">🔄</button>
-                  <span className="back-label">Back</span>
                 </div>
 
                 <div className="canvas-wrapper">
@@ -1275,32 +1149,25 @@ export default function PastMedicalHistoryPage() {
         </main>
       </div>
 
-      <footer className="footer">
-        <button className="footer-btn">
-          <span className="nav-icon">🌐</span>
-          <span className="nav-text">Internet</span>
-        </button>
-        <button className="footer-btn">
-          <span className="nav-icon">⌨️</span>
-          <span className="nav-text">Server</span>
-        </button>
-        <button className="footer-btn" onClick={handleAddPatientClick}>
-          <span className="nav-icon">👤</span>
-          <span className="nav-text">Add Patient</span>
-        </button>
-        <button className="footer-btn" onClick={handleTransferClick}>
-          <span className="nav-icon">🔄</span>
-          <span className="nav-text">Transfer ePRF</span>
-        </button>
-        <button className="footer-btn" onClick={handleSubmitEPRF}>
-          <span className="nav-icon">✓</span>
-          <span className="nav-text">Submit ePRF</span>
-        </button>
-        <div className="footer-right">
-          <button className="prev-btn" onClick={handlePrevious}>&lt; Previous</button>
-          <button className="next-btn" onClick={handleNext}>Next &gt;</button>
+      <div className="eprf-footer incident-footer">
+        <ConnectionStatus />
+        <div className="footer-left">
+          <button className="footer-btn discovery" onClick={handleAddPatientClick}>Add Patient</button>
+          <button 
+            className={`footer-btn green ${!canTransfer ? 'disabled' : ''}`} 
+            onClick={handleTransferClick}
+            disabled={!canTransfer}
+            title={!canTransfer ? 'Only the incident owner or patient owner can transfer' : ''}
+          >
+            Transfer Patient
+          </button>
+          <button className="footer-btn green" onClick={handleSubmitEPRF}>Submit ePRF</button>
         </div>
-      </footer>
+        <div className="footer-right">
+          <button className="footer-btn orange" onClick={handlePrevious}>{"< Previous"}</button>
+          <button className="footer-btn orange" onClick={handleNext}>{"Next >"}</button>
+        </div>
+      </div>
 
       {/* Time Picker Modal */}
       {showTimePicker && (
@@ -1384,6 +1251,37 @@ export default function PastMedicalHistoryPage() {
         onTransferComplete={handleTransferComplete}
         incidentId={incidentId}
         patientLetter={patientLetter}
+      />
+
+      <PatientManagementModal
+        isOpen={showPatientManagementModal}
+        onClose={() => setShowPatientManagementModal(false)}
+        incidentId={incidentId}
+        fleetId={fleetId}
+        onPatientSwitch={(letter) => {
+          setPatientLetter(letter)
+          const params = new URLSearchParams({ id: incidentId, fleetId })
+          router.push(`/past-medical-history?${params}`)
+        }}
+        onPatientAdded={(newLetter, previousLetter) => {
+          setPatientLetter(newLetter)
+          setSuccessMessage({
+            title: 'Patient Added Successfully!',
+            message: `Patient ${previousLetter} has been saved.\n\nYou are now working on Patient ${newLetter}.\n\nThe form has been cleared for the new patient.`
+          })
+          setShowSuccessModal(true)
+          setTimeout(() => {
+            const params = new URLSearchParams({ id: incidentId, fleetId })
+            router.push(`/patient-info?${params}`)
+          }, 2000)
+        }}
+      />
+
+      <ManageCollaboratorsModal
+        isOpen={showCollaboratorsModal}
+        onClose={() => setShowCollaboratorsModal(false)}
+        incidentId={incidentId}
+        currentUserPermission={userPermission || 'view'}
       />
     </div>
   )

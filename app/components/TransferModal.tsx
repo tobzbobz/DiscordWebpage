@@ -295,7 +295,7 @@ export default function TransferModal({
       
       <div className="transfer-modal" onClick={e => e.stopPropagation()}>
         <div className="transfer-header">
-          Transfer ePRF
+          Transfer Patient
         </div>
         
         <div className="transfer-body" style={{ position: 'relative' }}>
@@ -306,8 +306,8 @@ export default function TransferModal({
           <div className="transfer-warning">
             <span className="warning-icon">⚠️</span>
             <span className="warning-text">
-              This action is <strong>irreversible</strong>. The ePRF will be transferred to another user 
-              and they will become the author. You will no longer be able to edit this record.
+              This action is <strong>irreversible</strong>. The patient will be transferred to another user 
+              and they will become the owner. You will no longer be able to edit this patient record.
             </span>
           </div>
           
@@ -401,7 +401,7 @@ export default function TransferModal({
               onClick={handleTransferClick}
               disabled={!selectedUser || isLoading}
             >
-              Transfer ePRF
+              Transfer Patient
             </button>
           </div>
         )}

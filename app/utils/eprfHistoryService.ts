@@ -48,20 +48,30 @@ function apiToLocal(record: api.EPRFRecord): EPRFRecord {
 
 // Get all ePRF records for a user (async version for API)
 export async function getEPRFHistoryAsync(discordId: string): Promise<EPRFRecord[]> {
+  // Get local records first
+  const localRecords = getEPRFHistory(discordId)
+  
   try {
     const apiRecords = await api.getEPRFRecordsByUser(discordId)
     const records = apiRecords.map(apiToLocal)
     
+    // Merge: prefer API records but keep local-only records
+    const apiRecordIds = new Set(records.map(r => `${r.incidentId}-${r.patientLetter}`))
+    const localOnlyRecords = localRecords.filter(
+      r => !apiRecordIds.has(`${r.incidentId}-${r.patientLetter}`)
+    )
+    const mergedRecords = [...records, ...localOnlyRecords]
+    
     // Update local cache
     const allRecords = getAllEPRFRecords()
     const otherRecords = allRecords.filter(r => r.author !== discordId)
-    localStorage.setItem(EPRF_HISTORY_KEY, JSON.stringify([...otherRecords, ...records]))
+    localStorage.setItem(EPRF_HISTORY_KEY, JSON.stringify([...otherRecords, ...mergedRecords]))
     localStorage.setItem(EPRF_CACHE_KEY, Date.now().toString())
     
-    return records
+    return mergedRecords
   } catch (error) {
     console.error('Failed to fetch from API, using cache:', error)
-    return getEPRFHistory(discordId)
+    return localRecords
   }
 }
 

@@ -6,9 +6,17 @@ import { validateAllSections, getSectionDisplayName } from '../utils/validation'
 import { handleAddPatient as addPatientService, handleSubmitEPRF as submitEPRFService, getCurrentPatientLetter } from '../utils/eprfService'
 import ConfirmationModal, { ValidationErrorModal, SuccessModal } from '../components/ConfirmationModal'
 import TransferModal from '../components/TransferModal'
+import PatientManagementModal from '../components/PatientManagementModal'
+import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
+import PresenceIndicator from '../components/PresenceIndicator'
+import ConnectionStatus from '../components/ConnectionStatus'
+import CursorOverlay from '../components/CursorOverlay'
+import ChatWidget from '../components/ChatWidget'
+import VersionHistoryModal from '../components/VersionHistoryModal'
+import KeyboardShortcuts from '../components/KeyboardShortcuts'
 import { saveEPRFRecord, createEPRFRecord, getEPRFRecord } from '../utils/eprfHistoryService'
-import { getCurrentUser } from '../utils/userService'
-import { isAdmin } from '../utils/apiClient'
+import { getCurrentUser, clearCurrentUser } from '../utils/userService'
+import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canEdit, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
@@ -71,13 +79,61 @@ export default function IncidentPage() {
 
   // Modal states
   const [showAddPatientModal, setShowAddPatientModal] = useState(false)
+  const [showPatientManagementModal, setShowPatientManagementModal] = useState(false)
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [showValidationErrorModal, setShowValidationErrorModal] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [showTransferModal, setShowTransferModal] = useState(false)
+  const [showCollaboratorsModal, setShowCollaboratorsModal] = useState(false)
   const [validationErrors, setValidationErrors] = useState<{[section: string]: string[]}>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState({ title: '', message: '' })
+  const [userPermission, setUserPermission] = useState<PermissionLevel | null>(null)
+  const [canTransfer, setCanTransfer] = useState(false)
+  
+  // Real-time collaboration states
+  const [showVersionHistory, setShowVersionHistory] = useState(false)
+  const [showChat, setShowChat] = useState(false)
+  const [currentUser, setCurrentUser] = useState<{ discordId: string; callsign: string } | null>(null)
+
+  // Check user permission for this ePRF
+  useEffect(() => {
+    async function checkPermission() {
+      const user = getCurrentUser()
+      if (user) {
+        setCurrentUser({ discordId: user.discordId, callsign: user.callsign })
+      }
+      if (incidentId && user) {
+        const access = await checkEPRFAccess(incidentId, user.discordId)
+        setUserPermission(access.permission)
+        
+        // Check if user can transfer the current patient
+        const transferAllowed = await checkCanTransferPatient(incidentId, patientLetter, user.discordId)
+        setCanTransfer(transferAllowed)
+      }
+    }
+    checkPermission()
+  }, [incidentId, patientLetter])
+
+  // Keyboard shortcut handler
+  const handleKeyboardShortcut = (action: string) => {
+    switch (action) {
+      case 'save':
+        // Trigger save
+        if (incidentId) {
+          const data = {
+            caseType, exTransfer, dateTimeOfCall, dispatchTime, responding, atScene,
+            atPatient, departScene, atDestination, destination, incidentLocation,
+            locationType, locationTypeOther
+          }
+          localStorage.setItem(`incident_${incidentId}`, JSON.stringify(data))
+        }
+        break
+      case 'help':
+        // Handled by KeyboardShortcuts component
+        break
+    }
+  }
 
   // Load patient letter on mount
   useEffect(() => {
@@ -227,7 +283,9 @@ export default function IncidentPage() {
   }
 
   const handleLogout = () => {
-    router.push('/')
+    // Data is auto-saved via useEffect, just clear session and navigate
+    clearCurrentUser()
+    router.replace('/')
   }
 
   const handleHome = () => {
@@ -247,20 +305,48 @@ export default function IncidentPage() {
     setShowTransferModal(true)
   }
 
-  const handleTransferComplete = (targetUser: any) => {
-    // Transfer all patients for this incident to the target user
-    const { transferAllPatients } = require('../utils/eprfHistoryService')
-    transferAllPatients(incidentId, targetUser.discordId, targetUser.callsign)
-    
-    setShowTransferModal(false)
-    setSuccessMessage({
-      title: 'ePRF Transferred',
-      message: `The ePRF has been transferred to ${targetUser.callsign}. You will be redirected to the dashboard.`
-    })
-    setShowSuccessModal(true)
-    setTimeout(() => {
-      handleHome()
-    }, 2000)
+  const handleTransferComplete = async (targetUser: any) => {
+    try {
+      const user = getCurrentUser()
+      if (!user) return
+      
+      // Import the API function for patient transfer
+      const { transferPatientOwnershipAPI } = await import('../utils/apiClient')
+      
+      // Get current patient owner info
+      const record = await getEPRFRecord(incidentId, patientLetter)
+      const currentOwnerDiscordId = record?.author || user.discordId
+      const currentOwnerCallsign = record?.authorCallsign || user.callsign
+      
+      // Transfer the current patient ownership
+      await transferPatientOwnershipAPI(
+        incidentId,
+        patientLetter,
+        currentOwnerDiscordId,
+        currentOwnerCallsign,
+        targetUser.discordId,
+        targetUser.callsign,
+        user.discordId
+      )
+      
+      setShowTransferModal(false)
+      setSuccessMessage({
+        title: 'Patient Transferred',
+        message: `Patient ${patientLetter} has been transferred to ${targetUser.callsign}.`
+      })
+      setShowSuccessModal(true)
+      
+      // Re-check transfer permission after transfer
+      const transferAllowed = await checkCanTransferPatient(incidentId, patientLetter, user.discordId)
+      setCanTransfer(transferAllowed)
+    } catch (error) {
+      console.error('Transfer error:', error)
+      setSuccessMessage({
+        title: 'Transfer Failed',
+        message: 'Failed to transfer patient. Please try again.'
+      })
+      setShowSuccessModal(true)
+    }
   }
 
   const navigateTo = (section: string) => {
@@ -322,9 +408,23 @@ export default function IncidentPage() {
     <div className="eprf-dashboard incident-page">
       <div className="eprf-nav">
         <button className="nav-btn" onClick={handleHome}>Home</button>
-        <button className="nav-btn">Tools</button>
+        <button className="nav-btn" onClick={() => setShowPatientManagementModal(true)}>Manage Patients</button>
+        {canManageCollaborators(userPermission) && (
+          <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
+        )}
+        <button className="nav-btn" onClick={() => setShowVersionHistory(true)} title="Version History">History</button>
+        <button className="nav-btn" onClick={() => setShowChat(!showChat)} title="Chat">Chat</button>
         <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
-        <button className="nav-btn" onClick={handleLogout}>Manage Crew</button>
+        <button className="nav-btn" onClick={handleLogout}>Logout</button>
+        {incidentId && patientLetter && (
+          <PresenceIndicator 
+            incidentId={incidentId}
+            patientLetter={patientLetter}
+            userDiscordId={getCurrentUser()?.discordId || ''}
+            userCallsign={getCurrentUser()?.callsign || ''}
+            pageName="incident"
+          />
+        )}
         <div className="page-counter">
           <span className="patient-letter">{patientLetter}</span>
           <span className="page-indicator">1 of 1</span>
@@ -502,11 +602,17 @@ export default function IncidentPage() {
       </div>
 
       <div className="eprf-footer incident-footer">
+        <ConnectionStatus />
         <div className="footer-left">
-          <button className="footer-btn internet">Internet</button>
-          <button className="footer-btn server">Server</button>
           <button className="footer-btn green" onClick={handleAddPatientClick}>Add Patient</button>
-          <button className="footer-btn green" onClick={handleTransferClick}>Transfer ePRF</button>
+          <button 
+            className={`footer-btn green ${!canTransfer ? 'disabled' : ''}`} 
+            onClick={handleTransferClick}
+            disabled={!canTransfer}
+            title={!canTransfer ? 'Only the incident owner or patient owner can transfer' : ''}
+          >
+            Transfer Patient
+          </button>
           <button className="footer-btn green" onClick={handleSubmit}>Submit ePRF</button>
         </div>
         <div className="footer-right">
@@ -561,6 +667,38 @@ export default function IncidentPage() {
         patientLetter={patientLetter}
       />
 
+      <PatientManagementModal
+        isOpen={showPatientManagementModal}
+        onClose={() => setShowPatientManagementModal(false)}
+        incidentId={incidentId}
+        fleetId={fleetId}
+        onPatientSwitch={(letter) => {
+          setPatientLetter(letter)
+          // Reload page to get new patient data
+          const params = new URLSearchParams({ id: incidentId, fleetId })
+          router.push(`/incident?${params}`)
+        }}
+        onPatientAdded={(newLetter, previousLetter) => {
+          setPatientLetter(newLetter)
+          setSuccessMessage({
+            title: 'Patient Added Successfully!',
+            message: `Patient ${previousLetter} has been saved.\n\nYou are now working on Patient ${newLetter}.\n\nThe form has been cleared for the new patient.`
+          })
+          setShowSuccessModal(true)
+          setTimeout(() => {
+            const params = new URLSearchParams({ id: incidentId, fleetId })
+            router.push(`/patient-info?${params}`)
+          }, 2000)
+        }}
+      />
+
+      <ManageCollaboratorsModal
+        isOpen={showCollaboratorsModal}
+        onClose={() => setShowCollaboratorsModal(false)}
+        incidentId={incidentId}
+        currentUserPermission={userPermission || 'view'}
+      />
+
       {showDateTimePicker && (
         <div className="modal-overlay" onClick={() => setShowDateTimePicker(false)}>
           <div className="datetime-picker" onClick={(e) => e.stopPropagation()}>
@@ -602,6 +740,48 @@ export default function IncidentPage() {
           </div>
         </div>
       )}
+
+      {/* Real-time Collaboration Components */}
+      {currentUser && (
+        <>
+          {/* Cursor Overlay for collaborative editing */}
+          <CursorOverlay
+            incidentId={incidentId}
+            discordId={currentUser.discordId}
+            callsign={currentUser.callsign}
+            patientLetter={patientLetter}
+          />
+
+          {/* Chat Widget */}
+          <ChatWidget
+            incidentId={incidentId}
+            discordId={currentUser.discordId}
+            callsign={currentUser.callsign}
+            patientLetter={patientLetter}
+          />
+
+          {/* Version History Modal */}
+          {showVersionHistory && (
+            <VersionHistoryModal
+              discordId={currentUser.discordId}
+              callsign={currentUser.callsign}
+              incidentId={incidentId}
+              patientLetter={patientLetter}
+              isOwner={userPermission === 'owner'}
+              isPatientOwner={userPermission === 'owner' || userPermission === 'manage'}
+              onClose={() => setShowVersionHistory(false)}
+            />
+          )}
+        </>
+      )}
+
+      {/* Keyboard Shortcuts */}
+      <KeyboardShortcuts 
+        shortcuts={[
+          { key: 's', ctrlKey: true, action: () => handleKeyboardShortcut('save'), description: 'Save', category: 'Actions' },
+          { key: '?', action: () => {}, description: 'Show Help', category: 'General' }
+        ]}
+      />
     </div>
   )
 }

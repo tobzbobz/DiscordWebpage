@@ -6,8 +6,12 @@ import { validateAllSections, getSectionDisplayName } from '../utils/validation'
 import { handleAddPatient as addPatientService, handleSubmitEPRF as submitEPRFService, getCurrentPatientLetter } from '../utils/eprfService'
 import ConfirmationModal, { ValidationErrorModal, SuccessModal } from '../components/ConfirmationModal'
 import TransferModal from '../components/TransferModal'
-import { getCurrentUser } from '../utils/userService'
-import { isAdmin } from '../utils/apiClient'
+import PatientManagementModal from '../components/PatientManagementModal'
+import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
+import ConnectionStatus from '../components/ConnectionStatus'
+import PresenceIndicator from '../components/PresenceIndicator'
+import { getCurrentUser, clearCurrentUser } from '../utils/userService'
+import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
@@ -26,11 +30,31 @@ export default function DispositionPage() {
   const [showAddPatientModal, setShowAddPatientModal] = useState(false)
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [showTransferModal, setShowTransferModal] = useState(false)
+  const [showPatientManagementModal, setShowPatientManagementModal] = useState(false)
+  const [showCollaboratorsModal, setShowCollaboratorsModal] = useState(false)
   const [showValidationErrorModal, setShowValidationErrorModal] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [validationErrors, setValidationErrors] = useState<{[section: string]: string[]}>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState({ title: '', message: '' })
+  const [userPermission, setUserPermission] = useState<PermissionLevel | null>(null)
+  const [canTransfer, setCanTransfer] = useState(false)
+
+  // Check user permission for this ePRF
+  useEffect(() => {
+    async function checkPermission() {
+      const user = getCurrentUser()
+      if (incidentId && user) {
+        const access = await checkEPRFAccess(incidentId, user.discordId)
+        setUserPermission(access.permission)
+        
+        // Check if user can transfer the current patient
+        const transferAllowed = await checkCanTransferPatient(incidentId, patientLetter, user.discordId)
+        setCanTransfer(transferAllowed)
+      }
+    }
+    checkPermission()
+  }, [incidentId, patientLetter])
 
   const [formData, setFormData] = useState({
     disposition: '',
@@ -79,6 +103,13 @@ export default function DispositionPage() {
   }, [formData, incidentId])
 
   const noTreatmentReasons = [
+    'Treatment not indicated',
+    'Patient declined treatment',
+    'Patient absconded',
+    'Patient deceased'
+  ]
+
+  const noTransportReasons = [
     'Transport not indicated',
     'Patient declined transport',
     'Patient absconded',
@@ -86,7 +117,8 @@ export default function DispositionPage() {
   ]
 
   const handleLogout = () => {
-    router.push('/')
+    clearCurrentUser()
+    router.replace('/')
   }
 
   const handleHome = () => {
@@ -538,6 +570,42 @@ export default function DispositionPage() {
           flex: 1;
         }
 
+        .gp-textarea {
+          width: 100%;
+          height: 60px;
+          padding: 8px 10px;
+          font-size: 14px;
+          border: 1px solid #7a9cc0;
+          border-radius: 3px;
+          background: white;
+          font-family: inherit;
+          resize: none;
+        }
+
+        .gp-textarea.grayed {
+          background: #c8d0d8;
+          color: #666;
+          cursor: not-allowed;
+        }
+
+        .gp-notes-textarea {
+          width: 100%;
+          height: 60px;
+          padding: 8px 10px;
+          font-size: 14px;
+          border: 1px solid #7a9cc0;
+          border-radius: 3px;
+          background: white;
+          font-family: inherit;
+          resize: none;
+        }
+
+        .gp-notes-textarea.grayed {
+          background: #c8d0d8;
+          color: #666;
+          cursor: not-allowed;
+        }
+
         .note-to-gp-section {
           margin-bottom: 25px;
         }
@@ -634,9 +702,21 @@ export default function DispositionPage() {
 
       <div className="eprf-nav">
         <button className="nav-btn" onClick={handleHome}>Home</button>
-        <button className="nav-btn">Tools</button>
+        <button className="nav-btn" onClick={() => setShowPatientManagementModal(true)}>Manage Patients</button>
+        {canManageCollaborators(userPermission) && (
+          <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
+        )}
         <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
-        <button className="nav-btn" onClick={handleLogout}>Manage Crew</button>
+        <button className="nav-btn" onClick={handleLogout}>Logout</button>
+        {incidentId && patientLetter && (
+          <PresenceIndicator 
+            incidentId={incidentId}
+            patientLetter={patientLetter}
+            userDiscordId={getCurrentUser()?.discordId || ''}
+            userCallsign={getCurrentUser()?.callsign || ''}
+            pageName="disposition"
+          />
+        )}
         <div className="page-counter">
           <span className="patient-letter">{patientLetter}</span>
           <span className="page-indicator">{currentPage} of {totalPages}</span>
@@ -727,6 +807,9 @@ export default function DispositionPage() {
                   onChange={(e) => handleInputChange('noTransportReason', e.target.value)}
                 >
                   <option value=""></option>
+                  {noTransportReasons.map((reason) => (
+                    <option key={reason} value={reason}>{reason}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -879,7 +962,11 @@ export default function DispositionPage() {
                   </label>
                 </div>
                 <div className="gp-textarea-area">
-                  {/* Empty space matching screenshot layout */}
+                  <textarea
+                    className="gp-textarea grayed"
+                    disabled
+                    readOnly
+                  />
                 </div>
               </div>
             </div>
@@ -926,11 +1013,17 @@ export default function DispositionPage() {
       </div>
 
       <div className="eprf-footer incident-footer">
+        <ConnectionStatus />
         <div className="footer-left">
-          <button className="footer-btn internet">Internet</button>
-          <button className="footer-btn server">Server</button>
           <button className="footer-btn discovery" onClick={handleAddPatientClick}>Add Patient</button>
-          <button className="footer-btn green" onClick={handleTransferClick}>Transfer ePRF</button>
+          <button 
+            className={`footer-btn green ${!canTransfer ? 'disabled' : ''}`} 
+            onClick={handleTransferClick}
+            disabled={!canTransfer}
+            title={!canTransfer ? 'Only the incident owner or patient owner can transfer' : ''}
+          >
+            Transfer Patient
+          </button>
           <button className="footer-btn green" onClick={handleSubmitEPRF}>Submit ePRF</button>
         </div>
         <div className="footer-right">
@@ -987,6 +1080,37 @@ export default function DispositionPage() {
         onTransferComplete={handleTransferComplete}
         incidentId={incidentId}
         patientLetter={patientLetter}
+      />
+
+      <PatientManagementModal
+        isOpen={showPatientManagementModal}
+        onClose={() => setShowPatientManagementModal(false)}
+        incidentId={incidentId}
+        fleetId={fleetId}
+        onPatientSwitch={(letter) => {
+          setPatientLetter(letter)
+          const params = new URLSearchParams({ id: incidentId, fleetId })
+          router.push(`/disposition?${params}`)
+        }}
+        onPatientAdded={(newLetter, previousLetter) => {
+          setPatientLetter(newLetter)
+          setSuccessMessage({
+            title: 'Patient Added Successfully!',
+            message: `Patient ${previousLetter} has been saved.\n\nYou are now working on Patient ${newLetter}.\n\nThe form has been cleared for the new patient.`
+          })
+          setShowSuccessModal(true)
+          setTimeout(() => {
+            const params = new URLSearchParams({ id: incidentId, fleetId })
+            router.push(`/patient-info?${params}`)
+          }, 2000)
+        }}
+      />
+
+      <ManageCollaboratorsModal
+        isOpen={showCollaboratorsModal}
+        onClose={() => setShowCollaboratorsModal(false)}
+        incidentId={incidentId}
+        currentUserPermission={userPermission || 'view'}
       />
     </div>
   )

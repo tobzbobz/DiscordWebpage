@@ -6,8 +6,11 @@ import { validateAllSections, getSectionDisplayName } from '../utils/validation'
 import { handleAddPatient as addPatientService, handleSubmitEPRF as submitEPRFService, getCurrentPatientLetter } from '../utils/eprfService'
 import ConfirmationModal, { ValidationErrorModal, SuccessModal } from '../components/ConfirmationModal'
 import TransferModal from '../components/TransferModal'
-import { getCurrentUser } from '../utils/userService'
-import { isAdmin } from '../utils/apiClient'
+import PatientManagementModal from '../components/PatientManagementModal'
+import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
+import PresenceIndicator from '../components/PresenceIndicator'
+import { getCurrentUser, clearCurrentUser } from '../utils/userService'
+import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
@@ -87,11 +90,31 @@ export default function MedicationsPage() {
   const [showAddPatientModal, setShowAddPatientModal] = useState(false)
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [showTransferModal, setShowTransferModal] = useState(false)
+  const [showPatientManagementModal, setShowPatientManagementModal] = useState(false)
+  const [showCollaboratorsModal, setShowCollaboratorsModal] = useState(false)
   const [showValidationErrorModal, setShowValidationErrorModal] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [eprfValidationErrors, setEprfValidationErrors] = useState<{[section: string]: string[]}>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState({ title: '', message: '' })
+  const [userPermission, setUserPermission] = useState<PermissionLevel | null>(null)
+  const [canTransfer, setCanTransfer] = useState(false)
+
+  // Check user permission for this ePRF
+  useEffect(() => {
+    async function checkPermission() {
+      const user = getCurrentUser()
+      if (incidentId && user) {
+        const access = await checkEPRFAccess(incidentId, user.discordId)
+        setUserPermission(access.permission)
+        
+        // Check if user can transfer the current patient
+        const transferAllowed = await checkCanTransferPatient(incidentId, patientLetter, user.discordId)
+        setCanTransfer(transferAllowed)
+      }
+    }
+    checkPermission()
+  }, [incidentId, patientLetter])
 
   // Load patient letter on mount
   useEffect(() => {
@@ -149,6 +172,7 @@ export default function MedicationsPage() {
   
   const [showNewMedication, setShowNewMedication] = useState(false)
   const [showSearchModal, setShowSearchModal] = useState(false)
+  const [showMedicationDropdown, setShowMedicationDropdown] = useState(false)
   const [showRouteModal, setShowRouteModal] = useState(false)
   const [showNotesModal, setShowNotesModal] = useState(false)
   const [showNotPossibleModal, setShowNotPossibleModal] = useState(false)
@@ -241,7 +265,8 @@ export default function MedicationsPage() {
   ]
 
   const handleLogout = () => {
-    router.push('/')
+    clearCurrentUser()
+    router.replace('/')
   }
 
   const handleHome = () => {
@@ -430,10 +455,6 @@ export default function MedicationsPage() {
     setTime(formatted)
   }
 
-  const handleNewMedication = () => {
-    setShowNewMedication(true)
-  }
-
   const resetMedicationForm = () => {
     setTime('')
     setAdministeredBy('')
@@ -447,6 +468,11 @@ export default function MedicationsPage() {
     setDiscarded(false)
     setNotesValue('')
     setNotPossibleReason('')
+  }
+
+  const handleNewMedication = () => {
+    resetMedicationForm()
+    setShowNewMedication(true)
   }
 
   const saveCurrentMedication = () => {
@@ -526,17 +552,20 @@ export default function MedicationsPage() {
   }
 
   const handleSearchClick = () => {
-    setShowSearchModal(true)
+    setSearchQuery(medication)
+    setShowMedicationDropdown(true)
   }
 
   const handleListClick = () => {
     setSearchQuery('')
     setShowSearchModal(true)
+    setShowMedicationDropdown(false)
   }
 
   const handleMedicationSelect = (medName: string) => {
     setMedication(medName)
     setShowSearchModal(false)
+    setShowMedicationDropdown(false)
     setSearchQuery('')
   }
 
@@ -577,9 +606,21 @@ export default function MedicationsPage() {
     <div className="eprf-dashboard incident-page">
       <div className="eprf-nav">
         <button className="nav-btn" onClick={handleHome}>Home</button>
-        <button className="nav-btn">Tools</button>
+        <button className="nav-btn" onClick={() => setShowPatientManagementModal(true)}>Manage Patients</button>
+        {canManageCollaborators(userPermission) && (
+          <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
+        )}
         <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
-        <button className="nav-btn" onClick={handleLogout}>Manage Crew</button>
+        <button className="nav-btn" onClick={handleLogout}>Logout</button>
+        {incidentId && patientLetter && (
+          <PresenceIndicator 
+            incidentId={incidentId}
+            patientLetter={patientLetter}
+            userDiscordId={getCurrentUser()?.discordId || ''}
+            userCallsign={getCurrentUser()?.callsign || ''}
+            pageName="medications"
+          />
+        )}
         <div className="page-counter">
           <span className="patient-letter">{patientLetter}</span>
           <span className="page-indicator">1 of 1</span>
@@ -664,19 +705,57 @@ export default function MedicationsPage() {
                 </div>
 
                 <div className="medication-row">
-                  <div className="medication-field" style={{ flex: 1 }}>
+                  <div className="medication-field" style={{ flex: 1, position: 'relative' }}>
                     <label className={`field-label required ${validationErrors.medication ? 'validation-error-label' : ''}`}>Medication</label>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <input 
                         type="text" 
                         value={medication}
+                        onChange={(e) => {
+                          setMedication(e.target.value)
+                          setShowMedicationDropdown(false)
+                        }}
+                        onClick={() => setShowMedicationDropdown(false)}
                         className={`text-input ${validationErrors.medication ? 'validation-error' : ''}`}
-                        readOnly
                         style={{ flex: 1 }}
                       />
                       <button className="search-btn" onClick={handleSearchClick}>Search</button>
                       <button className="search-btn" onClick={handleListClick}>List</button>
                     </div>
+                    {showMedicationDropdown && filteredMedications.length > 0 && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 100,
+                        maxHeight: '300px',
+                        overflowY: 'auto',
+                        background: '#6a8aac',
+                        border: '1px solid #3a5a7c',
+                        zIndex: 100,
+                        marginTop: '2px'
+                      }}>
+                        {filteredMedications.slice(0, 20).map((med, index) => (
+                          <div
+                            key={index}
+                            onClick={() => handleMedicationSelect(med.name)}
+                            style={{
+                              padding: '8px 12px',
+                              cursor: 'pointer',
+                              color: 'white',
+                              fontSize: '14px',
+                              borderBottom: '1px solid #5a7a9c',
+                              backgroundColor: index % 2 === 0 ? '#7a9abc' : '#6a8aac'
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#8aaacc'}
+                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = index % 2 === 0 ? '#7a9abc' : '#6a8aac'}
+                          >
+                            <div>{med.name}</div>
+                            <div style={{ fontSize: '12px', opacity: 0.8 }}>{med.code}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -815,7 +894,14 @@ export default function MedicationsPage() {
             }}>New Intervention</button>
           </div>
           <div className="footer-center">
-            <button className="footer-btn green" onClick={handleTransferClick}>Transfer ePRF</button>
+            <button 
+              className={`footer-btn green ${!canTransfer ? 'disabled' : ''}`} 
+              onClick={handleTransferClick}
+              disabled={!canTransfer}
+              title={!canTransfer ? 'Only the incident owner or patient owner can transfer' : ''}
+            >
+              Transfer Patient
+            </button>
             <button className="footer-btn green" onClick={handleSubmitEPRF}>Submit ePRF</button>
           </div>
           <div className="footer-right">
@@ -1075,6 +1161,37 @@ export default function MedicationsPage() {
         onTransferComplete={handleTransferComplete}
         incidentId={incidentId}
         patientLetter={patientLetter}
+      />
+
+      <PatientManagementModal
+        isOpen={showPatientManagementModal}
+        onClose={() => setShowPatientManagementModal(false)}
+        incidentId={incidentId}
+        fleetId={fleetId}
+        onPatientSwitch={(letter) => {
+          setPatientLetter(letter)
+          const params = new URLSearchParams({ id: incidentId, fleetId })
+          router.push(`/medications?${params}`)
+        }}
+        onPatientAdded={(newLetter, previousLetter) => {
+          setPatientLetter(newLetter)
+          setSuccessMessage({
+            title: 'Patient Added Successfully!',
+            message: `Patient ${previousLetter} has been saved.\n\nYou are now working on Patient ${newLetter}.\n\nThe form has been cleared for the new patient.`
+          })
+          setShowSuccessModal(true)
+          setTimeout(() => {
+            const params = new URLSearchParams({ id: incidentId, fleetId })
+            router.push(`/patient-info?${params}`)
+          }, 2000)
+        }}
+      />
+
+      <ManageCollaboratorsModal
+        isOpen={showCollaboratorsModal}
+        onClose={() => setShowCollaboratorsModal(false)}
+        incidentId={incidentId}
+        currentUserPermission={userPermission || 'view'}
       />
     </div>
   )

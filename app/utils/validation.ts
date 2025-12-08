@@ -126,7 +126,12 @@ export function validateSection(sectionName: string, incidentId: string): string
       return config.fields.map(field => config.labels[field as keyof typeof config.labels])
     }
     
-    const parsed = JSON.parse(data)
+    let parsed = JSON.parse(data)
+    
+    // Handle nested formData structure (used by past-medical-history)
+    if (parsed.formData && typeof parsed.formData === 'object') {
+      parsed = parsed.formData
+    }
     
     for (const field of config.fields) {
       const value = parsed[field]

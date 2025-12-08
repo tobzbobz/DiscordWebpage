@@ -6,8 +6,12 @@ import { validateAllSections, getSectionDisplayName } from '../utils/validation'
 import { handleAddPatient as addPatientService, handleSubmitEPRF as submitEPRFService, getCurrentPatientLetter } from '../utils/eprfService'
 import ConfirmationModal, { ValidationErrorModal, SuccessModal } from '../components/ConfirmationModal'
 import TransferModal from '../components/TransferModal'
-import { getCurrentUser } from '../utils/userService'
-import { isAdmin } from '../utils/apiClient'
+import PatientManagementModal from '../components/PatientManagementModal'
+import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
+import ConnectionStatus from '../components/ConnectionStatus'
+import PresenceIndicator from '../components/PresenceIndicator'
+import { getCurrentUser, clearCurrentUser } from '../utils/userService'
+import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
@@ -24,11 +28,31 @@ export default function ClinicalImpressionPage() {
   const [showAddPatientModal, setShowAddPatientModal] = useState(false)
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [showTransferModal, setShowTransferModal] = useState(false)
+  const [showPatientManagementModal, setShowPatientManagementModal] = useState(false)
+  const [showCollaboratorsModal, setShowCollaboratorsModal] = useState(false)
   const [showValidationErrorModal, setShowValidationErrorModal] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [validationErrorsData, setValidationErrorsData] = useState<{[section: string]: string[]}>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState({ title: '', message: '' })
+  const [userPermission, setUserPermission] = useState<PermissionLevel | null>(null)
+  const [canTransfer, setCanTransfer] = useState(false)
+
+  // Check user permission for this ePRF
+  useEffect(() => {
+    async function checkPermission() {
+      const user = getCurrentUser()
+      if (incidentId && user) {
+        const access = await checkEPRFAccess(incidentId, user.discordId)
+        setUserPermission(access.permission)
+        
+        // Check if user can transfer the current patient
+        const transferAllowed = await checkCanTransferPatient(incidentId, patientLetter, user.discordId)
+        setCanTransfer(transferAllowed)
+      }
+    }
+    checkPermission()
+  }, [incidentId, patientLetter])
 
   const [formData, setFormData] = useState({
     primaryClinicalImpression: '',
@@ -600,7 +624,8 @@ export default function ClinicalImpressionPage() {
   }, [])
 
   const handleLogout = () => {
-    router.push('/')
+    clearCurrentUser()
+    router.replace('/')
   }
 
   const handleHome = () => {
@@ -997,9 +1022,21 @@ export default function ClinicalImpressionPage() {
 
       <div className="eprf-nav">
         <button className="nav-btn" onClick={handleHome}>Home</button>
-        <button className="nav-btn">Tools</button>
+        <button className="nav-btn" onClick={() => setShowPatientManagementModal(true)}>Manage Patients</button>
+        {canManageCollaborators(userPermission) && (
+          <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
+        )}
         <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
-        <button className="nav-btn" onClick={handleLogout}>Manage Crew</button>
+        <button className="nav-btn" onClick={handleLogout}>Logout</button>
+        {incidentId && patientLetter && (
+          <PresenceIndicator 
+            incidentId={incidentId}
+            patientLetter={patientLetter}
+            userDiscordId={getCurrentUser()?.discordId || ''}
+            userCallsign={getCurrentUser()?.callsign || ''}
+            pageName="clinical-impression"
+          />
+        )}
         <div className="page-counter">
           <span className="patient-letter">{patientLetter}</span>
           <span className="page-indicator">1 of 1</span>
@@ -1032,20 +1069,11 @@ export default function ClinicalImpressionPage() {
                   value={formData.primaryClinicalImpression}
                   onChange={(e) => {
                     setFormData(prev => ({ ...prev, primaryClinicalImpression: e.target.value }))
-                    setPrimarySearchQuery(e.target.value)
-                    if (e.target.value) {
-                      setShowPrimaryDropdown(true)
-                      setShowSecondaryDropdown(false)
-                    } else {
-                      setShowPrimaryDropdown(false)
-                    }
+                    setShowPrimaryDropdown(false)
                   }}
-                  onFocus={() => {
-                    if (formData.primaryClinicalImpression) {
-                      setPrimarySearchQuery(formData.primaryClinicalImpression)
-                      setShowPrimaryDropdown(true)
-                      setShowSecondaryDropdown(false)
-                    }
+                  onClick={() => {
+                    setShowPrimaryDropdown(false)
+                    setShowSecondaryDropdown(false)
                   }}
                 />
                 <button className="action-btn" onClick={handlePrimarySearch}>Search</button>
@@ -1077,20 +1105,11 @@ export default function ClinicalImpressionPage() {
                   value={formData.secondaryClinicalImpression}
                   onChange={(e) => {
                     setFormData(prev => ({ ...prev, secondaryClinicalImpression: e.target.value }))
-                    setSecondarySearchQuery(e.target.value)
-                    if (e.target.value) {
-                      setShowSecondaryDropdown(true)
-                      setShowPrimaryDropdown(false)
-                    } else {
-                      setShowSecondaryDropdown(false)
-                    }
+                    setShowSecondaryDropdown(false)
                   }}
-                  onFocus={() => {
-                    if (formData.secondaryClinicalImpression) {
-                      setSecondarySearchQuery(formData.secondaryClinicalImpression)
-                      setShowSecondaryDropdown(true)
-                      setShowPrimaryDropdown(false)
-                    }
+                  onClick={() => {
+                    setShowPrimaryDropdown(false)
+                    setShowSecondaryDropdown(false)
                   }}
                 />
                 <button className="action-btn" onClick={handleSecondarySearch}>Search</button>
@@ -1128,32 +1147,25 @@ export default function ClinicalImpressionPage() {
         </main>
       </div>
 
-      <footer className="eprf-footer">
-        <button className="footer-btn">
-          <span className="btn-icon">🌐</span>
-          <span className="btn-text">Internet</span>
-        </button>
-        <button className="footer-btn server-btn">
-          <span className="btn-icon">⌨️</span>
-          <span className="btn-text">Server</span>
-        </button>
-        <button className="footer-btn add-patient-btn" onClick={handleAddPatientClick}>
-          <span className="btn-icon">👤+</span>
-          <span className="btn-text">Add Patient</span>
-        </button>
-        <button className="footer-btn transfer-btn" onClick={handleTransferClick}>
-          <span className="btn-icon">🔄</span>
-          <span className="btn-text">Transfer ePRF</span>
-        </button>
-        <button className="footer-btn submit-btn" onClick={handleSubmitEPRF}>
-          <span className="btn-icon">✓</span>
-          <span className="btn-text">Submit ePRF</span>
-        </button>
-        <div className="footer-right">
-          <button className="nav-prev" onClick={handlePrevious}>&lt; Previous</button>
-          <button className="nav-next" onClick={handleNext}>Next &gt;</button>
+      <div className="eprf-footer incident-footer">
+        <ConnectionStatus />
+        <div className="footer-left">
+          <button className="footer-btn discovery" onClick={handleAddPatientClick}>Add Patient</button>
+          <button 
+            className={`footer-btn green ${!canTransfer ? 'disabled' : ''}`} 
+            onClick={handleTransferClick}
+            disabled={!canTransfer}
+            title={!canTransfer ? 'Only the incident owner or patient owner can transfer' : ''}
+          >
+            Transfer Patient
+          </button>
+          <button className="footer-btn green" onClick={handleSubmitEPRF}>Submit ePRF</button>
         </div>
-      </footer>
+        <div className="footer-right">
+          <button className="footer-btn orange" onClick={handlePrevious}>{"< Previous"}</button>
+          <button className="footer-btn orange" onClick={handleNext}>{"Next >"}</button>
+        </div>
+      </div>
 
       {/* List Modal with Search */}
       {showListModal && (
@@ -1235,6 +1247,37 @@ export default function ClinicalImpressionPage() {
         onTransferComplete={handleTransferComplete}
         incidentId={incidentId}
         patientLetter={patientLetter}
+      />
+
+      <PatientManagementModal
+        isOpen={showPatientManagementModal}
+        onClose={() => setShowPatientManagementModal(false)}
+        incidentId={incidentId}
+        fleetId={fleetId}
+        onPatientSwitch={(letter) => {
+          setPatientLetter(letter)
+          const params = new URLSearchParams({ id: incidentId, fleetId })
+          router.push(`/clinical-impression?${params}`)
+        }}
+        onPatientAdded={(newLetter, previousLetter) => {
+          setPatientLetter(newLetter)
+          setSuccessMessage({
+            title: 'Patient Added Successfully!',
+            message: `Patient ${previousLetter} has been saved.\n\nYou are now working on Patient ${newLetter}.\n\nThe form has been cleared for the new patient.`
+          })
+          setShowSuccessModal(true)
+          setTimeout(() => {
+            const params = new URLSearchParams({ id: incidentId, fleetId })
+            router.push(`/patient-info?${params}`)
+          }, 2000)
+        }}
+      />
+
+      <ManageCollaboratorsModal
+        isOpen={showCollaboratorsModal}
+        onClose={() => setShowCollaboratorsModal(false)}
+        incidentId={incidentId}
+        currentUserPermission={userPermission || 'view'}
       />
     </div>
   )

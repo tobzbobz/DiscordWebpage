@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 * {
   margin: 0;
   padding: 0;
@@ -370,18 +374,36 @@ main {
   font-weight: bold;
   border: 2px solid;
   border-radius: 4px;
-  cursor: pointer;
+  cursor: default;
   text-shadow: 0 1px 1px rgba(0,0,0,0.2);
   transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 80px;
 }
 
-.footer-btn.internet {
+.footer-btn .status-label {
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.footer-btn .status-subtext {
+  font-size: 9px;
+  font-weight: normal;
+  opacity: 0.9;
+  margin-top: 1px;
+}
+
+.footer-btn.internet.connected,
+.footer-btn.server.connected {
   background: linear-gradient(to bottom, #5cb85c 0%, #449d44 100%);
   border-color: #3d8b3d;
   color: white;
 }
 
-.footer-btn.server {
+.footer-btn.internet.disconnected,
+.footer-btn.server.disconnected {
   background: linear-gradient(to bottom, #d9534f 0%, #c9302c 100%);
   border-color: #b52b27;
   color: white;

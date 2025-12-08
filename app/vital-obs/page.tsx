@@ -6,8 +6,12 @@ import { validateAllSections, getSectionDisplayName } from '../utils/validation'
 import { handleAddPatient as addPatientService, handleSubmitEPRF as submitEPRFService, getCurrentPatientLetter } from '../utils/eprfService'
 import ConfirmationModal, { ValidationErrorModal, SuccessModal } from '../components/ConfirmationModal'
 import TransferModal from '../components/TransferModal'
-import { getCurrentUser } from '../utils/userService'
-import { isAdmin } from '../utils/apiClient'
+import PatientManagementModal from '../components/PatientManagementModal'
+import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
+import ConnectionStatus from '../components/ConnectionStatus'
+import PresenceIndicator from '../components/PresenceIndicator'
+import { getCurrentUser, clearCurrentUser } from '../utils/userService'
+import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
@@ -89,9 +93,29 @@ export default function VitalObsPage() {
   const [showValidationErrorModal, setShowValidationErrorModal] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [showTransferModal, setShowTransferModal] = useState(false)
+  const [showPatientManagementModal, setShowPatientManagementModal] = useState(false)
+  const [showCollaboratorsModal, setShowCollaboratorsModal] = useState(false)
   const [validationErrorsModal, setValidationErrorsModal] = useState<{[section: string]: string[]}>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState({ title: '', message: '' })
+  const [userPermission, setUserPermission] = useState<PermissionLevel | null>(null)
+  const [canTransfer, setCanTransfer] = useState(false)
+
+  // Check user permission for this ePRF
+  useEffect(() => {
+    async function checkPermission() {
+      const user = getCurrentUser()
+      if (incidentId && user) {
+        const access = await checkEPRFAccess(incidentId, user.discordId)
+        setUserPermission(access.permission)
+        
+        // Check if user can transfer the current patient
+        const transferAllowed = await checkCanTransferPatient(incidentId, patientLetter, user.discordId)
+        setCanTransfer(transferAllowed)
+      }
+    }
+    checkPermission()
+  }, [incidentId, patientLetter])
   
   // Saved vitals array - initialize from localStorage
   const [savedVitals, setSavedVitals] = useState<any[]>(() => {
@@ -152,6 +176,31 @@ export default function VitalObsPage() {
   useEffect(() => {
     if (incidentId) {
       setPatientLetter(getCurrentPatientLetter(incidentId))
+    }
+  }, [incidentId])
+
+  // Reload all data from localStorage when page is visited (to pick up changes from other pages)
+  useEffect(() => {
+    if (incidentId) {
+      const savedVitalsData = localStorage.getItem(`vitals_${incidentId}`)
+      if (savedVitalsData) {
+        setSavedVitals(JSON.parse(savedVitalsData))
+      }
+      
+      const savedMedsData = localStorage.getItem(`meds_${incidentId}`)
+      if (savedMedsData) {
+        setSavedMeds(JSON.parse(savedMedsData))
+      }
+      
+      const savedInterventionsData = localStorage.getItem(`interventions_${incidentId}`)
+      if (savedInterventionsData) {
+        setSavedInterventions(JSON.parse(savedInterventionsData))
+      }
+      
+      const savedCompetencyData = localStorage.getItem(`competency_${incidentId}`)
+      if (savedCompetencyData) {
+        setSavedCompetency(JSON.parse(savedCompetencyData))
+      }
     }
   }, [incidentId])
 
@@ -419,7 +468,8 @@ export default function VitalObsPage() {
   const [pickerMinute, setPickerMinute] = useState(55)
 
   const handleLogout = () => {
-    router.push('/')
+    clearCurrentUser()
+    router.replace('/')
   }
 
   const handleHome = () => {
@@ -1039,10 +1089,6 @@ export default function VitalObsPage() {
     setShowNotesModal(false)
   }
 
-  const handleNewVitals = () => {
-    setShowNewVitals(true)
-  }
-
   const resetVitalsForm = () => {
     setTime('')
     setGcs('')
@@ -1090,6 +1136,11 @@ export default function VitalObsPage() {
     setPupilReactsRight('')
     setSkinColor('')
     setNotesValue('')
+  }
+
+  const handleNewVitals = () => {
+    resetVitalsForm()
+    setShowNewVitals(true)
   }
 
   const saveCurrentVitals = () => {
@@ -1153,9 +1204,21 @@ export default function VitalObsPage() {
     <div className="eprf-dashboard incident-page">
       <div className="eprf-nav">
         <button className="nav-btn" onClick={handleHome}>Home</button>
-        <button className="nav-btn">Tools</button>
+        <button className="nav-btn" onClick={() => setShowPatientManagementModal(true)}>Manage Patients</button>
+        {canManageCollaborators(userPermission) && (
+          <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
+        )}
         <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
-        <button className="nav-btn" onClick={handleLogout}>Manage Crew</button>
+        <button className="nav-btn" onClick={handleLogout}>Logout</button>
+        {incidentId && patientLetter && (
+          <PresenceIndicator 
+            incidentId={incidentId}
+            patientLetter={patientLetter}
+            userDiscordId={getCurrentUser()?.discordId || ''}
+            userCallsign={getCurrentUser()?.callsign || ''}
+            pageName="vital-obs"
+          />
+        )}
         <div className="page-counter">
           <span className="patient-letter">{patientLetter}</span>
           <span className="page-indicator">1 of 1</span>
@@ -1570,7 +1633,14 @@ export default function VitalObsPage() {
         <div className="eprf-footer vitals-footer">
           <div className="footer-left">
             <button className="footer-btn green" onClick={handleAddPatientClick}>Add Patient</button>
-            <button className="footer-btn green" onClick={handleTransferClick}>Transfer ePRF</button>
+            <button 
+              className={`footer-btn green ${!canTransfer ? 'disabled' : ''}`} 
+              onClick={handleTransferClick}
+              disabled={!canTransfer}
+              title={!canTransfer ? 'Only the incident owner or patient owner can transfer' : ''}
+            >
+              Transfer Patient
+            </button>
             <button className="footer-btn green" onClick={handleSubmitEPRF}>Submit ePRF</button>
           </div>
           <div className="footer-center">
@@ -1582,10 +1652,7 @@ export default function VitalObsPage() {
         </div>
       ) : (
         <div className="eprf-footer vitals-edit-footer">
-          <div className="footer-left">
-            <button className="footer-btn internet">Internet</button>
-            <button className="footer-btn server">Server</button>
-          </div>
+          <ConnectionStatus />
           <div className="footer-right">
             <button className="footer-btn gray" onClick={handleCancelAndDiscard}>Cancel and discard changes</button>
             <button className="footer-btn blue" onClick={handleSaveAndEnterAnother}>Save and enter another set of observations</button>
@@ -4060,6 +4127,37 @@ export default function VitalObsPage() {
         onTransferComplete={handleTransferComplete}
         incidentId={incidentId}
         patientLetter={patientLetter}
+      />
+
+      <PatientManagementModal
+        isOpen={showPatientManagementModal}
+        onClose={() => setShowPatientManagementModal(false)}
+        incidentId={incidentId}
+        fleetId={fleetId}
+        onPatientSwitch={(letter) => {
+          setPatientLetter(letter)
+          const params = new URLSearchParams({ id: incidentId, fleetId })
+          router.push(`/vital-obs?${params}`)
+        }}
+        onPatientAdded={(newLetter, previousLetter) => {
+          setPatientLetter(newLetter)
+          setSuccessMessage({
+            title: 'Patient Added Successfully!',
+            message: `Patient ${previousLetter} has been saved.\n\nYou are now working on Patient ${newLetter}.\n\nThe form has been cleared for the new patient.`
+          })
+          setShowSuccessModal(true)
+          setTimeout(() => {
+            const params = new URLSearchParams({ id: incidentId, fleetId })
+            router.push(`/patient-info?${params}`)
+          }, 2000)
+        }}
+      />
+
+      <ManageCollaboratorsModal
+        isOpen={showCollaboratorsModal}
+        onClose={() => setShowCollaboratorsModal(false)}
+        incidentId={incidentId}
+        currentUserPermission={userPermission || 'view'}
       />
     </div>
   )

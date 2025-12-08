@@ -6,8 +6,12 @@ import { validateAllSections, getSectionDisplayName } from '../utils/validation'
 import { handleAddPatient as addPatientService, handleSubmitEPRF as submitEPRFService, getCurrentPatientLetter } from '../utils/eprfService'
 import ConfirmationModal, { ValidationErrorModal, SuccessModal } from '../components/ConfirmationModal'
 import TransferModal from '../components/TransferModal'
-import { getCurrentUser } from '../utils/userService'
-import { isAdmin } from '../utils/apiClient'
+import PatientManagementModal from '../components/PatientManagementModal'
+import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
+import ConnectionStatus from '../components/ConnectionStatus'
+import PresenceIndicator from '../components/PresenceIndicator'
+import { getCurrentUser, clearCurrentUser } from '../utils/userService'
+import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
@@ -26,9 +30,29 @@ export default function HxComplaintPage() {
   const [showValidationErrorModal, setShowValidationErrorModal] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [showTransferModal, setShowTransferModal] = useState(false)
+  const [showPatientManagementModal, setShowPatientManagementModal] = useState(false)
+  const [showCollaboratorsModal, setShowCollaboratorsModal] = useState(false)
   const [validationErrors, setValidationErrors] = useState<{[section: string]: string[]}>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState({ title: '', message: '' })
+  const [userPermission, setUserPermission] = useState<PermissionLevel | null>(null)
+  const [canTransfer, setCanTransfer] = useState(false)
+
+  // Check user permission for this ePRF
+  useEffect(() => {
+    async function checkPermission() {
+      const user = getCurrentUser()
+      if (incidentId && user) {
+        const access = await checkEPRFAccess(incidentId, user.discordId)
+        setUserPermission(access.permission)
+        
+        // Check if user can transfer the current patient
+        const transferAllowed = await checkCanTransferPatient(incidentId, patientLetter, user.discordId)
+        setCanTransfer(transferAllowed)
+      }
+    }
+    checkPermission()
+  }, [incidentId, patientLetter])
 
   const [currentPage, setCurrentPage] = useState(1)
   
@@ -64,6 +88,7 @@ export default function HxComplaintPage() {
   const [showOtherMechanismModal, setShowOtherMechanismModal] = useState(false)
   const [showSportsModal, setShowSportsModal] = useState(false)
   const [showOtherSportsModal, setShowOtherSportsModal] = useState(false)
+  const [sportsSearchQuery, setSportsSearchQuery] = useState('')
   const [tempOtherText, setTempOtherText] = useState('')
   const [tempOtherMechanism, setTempOtherMechanism] = useState('')
   const [tempOtherSports, setTempOtherSports] = useState('')
@@ -224,7 +249,8 @@ export default function HxComplaintPage() {
   const rightColumnMechanism = mechanismOptions.slice(6)
 
   const handleLogout = () => {
-    router.push('/')
+    clearCurrentUser()
+    router.replace('/')
   }
 
   const handleHome = () => {
@@ -434,8 +460,13 @@ export default function HxComplaintPage() {
   }
 
   const handleSportsClick = () => {
+    setSportsSearchQuery('')
     setShowSportsModal(true)
   }
+
+  const filteredSportsOptions = sportsOptions.filter(sport =>
+    sport.toLowerCase().includes(sportsSearchQuery.toLowerCase())
+  )
 
   const handleSportsSelect = (sport: string) => {
     if (sport === 'Other') {
@@ -513,9 +544,21 @@ export default function HxComplaintPage() {
     <div className="eprf-dashboard incident-page">
       <div className="eprf-nav">
         <button className="nav-btn" onClick={handleHome}>Home</button>
-        <button className="nav-btn">Tools</button>
+        <button className="nav-btn" onClick={() => setShowPatientManagementModal(true)}>Manage Patients</button>
+        {canManageCollaborators(userPermission) && (
+          <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
+        )}
         <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
-        <button className="nav-btn" onClick={handleLogout}>Manage Crew</button>
+        <button className="nav-btn" onClick={handleLogout}>Logout</button>
+        {incidentId && patientLetter && (
+          <PresenceIndicator 
+            incidentId={incidentId}
+            patientLetter={patientLetter}
+            userDiscordId={getCurrentUser()?.discordId || ''}
+            userCallsign={getCurrentUser()?.callsign || ''}
+            pageName="hx-complaint"
+          />
+        )}
         <div className="page-counter">
           <span className="patient-letter">{patientLetter}</span>
           <span className="page-indicator">{currentPage} of 2</span>
@@ -637,13 +680,13 @@ export default function HxComplaintPage() {
                 <div style={{ display: 'flex', gap: '40px', marginTop: '10px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {leftColumnMechanism.map((mechanism) => (
-                      <label key={mechanism} className="radio-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <label key={mechanism} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                         <input
                           type="radio"
                           name="mechanism"
                           checked={formData.mechanismOfInjury === mechanism || (mechanism === 'Other' && formData.mechanismOfInjury === 'Other')}
                           onChange={() => handleMechanismChange(mechanism)}
-                          style={{ width: '18px', height: '18px' }}
+                          style={{ width: '18px', height: '18px', margin: 0 }}
                         />
                         <span style={{ color: '#1a1a1a' }}>{mechanism}</span>
                       </label>
@@ -651,13 +694,13 @@ export default function HxComplaintPage() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {rightColumnMechanism.map((mechanism) => (
-                      <label key={mechanism} className="radio-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <label key={mechanism} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                         <input
                           type="radio"
                           name="mechanism"
                           checked={formData.mechanismOfInjury === mechanism}
                           onChange={() => handleMechanismChange(mechanism)}
-                          style={{ width: '18px', height: '18px' }}
+                          style={{ width: '18px', height: '18px', margin: 0 }}
                         />
                         <span style={{ color: '#1a1a1a' }}>{mechanism}</span>
                       </label>
@@ -688,11 +731,17 @@ export default function HxComplaintPage() {
       </div>
 
       <div className="eprf-footer">
+        <ConnectionStatus />
         <div className="footer-left">
-          <button className="footer-btn internet">Internet</button>
-          <button className="footer-btn server">Server</button>
           <button className="footer-btn green" onClick={handleAddPatientClick}>Add Patient</button>
-          <button className="footer-btn green" onClick={handleTransferClick}>Transfer ePRF</button>
+          <button 
+            className={`footer-btn green ${!canTransfer ? 'disabled' : ''}`} 
+            onClick={handleTransferClick}
+            disabled={!canTransfer}
+            title={!canTransfer ? 'Only the incident owner or patient owner can transfer' : ''}
+          >
+            Transfer Patient
+          </button>
           <button className="footer-btn green" onClick={handleSubmitEPRF}>Submit ePRF</button>
         </div>
         <div className="footer-right">
@@ -745,6 +794,37 @@ export default function HxComplaintPage() {
         onTransferComplete={handleTransferComplete}
         incidentId={incidentId}
         patientLetter={patientLetter}
+      />
+
+      <PatientManagementModal
+        isOpen={showPatientManagementModal}
+        onClose={() => setShowPatientManagementModal(false)}
+        incidentId={incidentId}
+        fleetId={fleetId}
+        onPatientSwitch={(letter) => {
+          setPatientLetter(letter)
+          const params = new URLSearchParams({ id: incidentId, fleetId })
+          router.push(`/hx-complaint?${params}`)
+        }}
+        onPatientAdded={(newLetter, previousLetter) => {
+          setPatientLetter(newLetter)
+          setSuccessMessage({
+            title: 'Patient Added Successfully!',
+            message: `Patient ${previousLetter} has been saved.\n\nYou are now working on Patient ${newLetter}.\n\nThe form has been cleared for the new patient.`
+          })
+          setShowSuccessModal(true)
+          setTimeout(() => {
+            const params = new URLSearchParams({ id: incidentId, fleetId })
+            router.push(`/patient-info?${params}`)
+          }, 2000)
+        }}
+      />
+
+      <ManageCollaboratorsModal
+        isOpen={showCollaboratorsModal}
+        onClose={() => setShowCollaboratorsModal(false)}
+        incidentId={incidentId}
+        currentUserPermission={userPermission || 'view'}
       />
 
       {/* Date Time Picker Modal */}
@@ -851,12 +931,28 @@ export default function HxComplaintPage() {
         <div className="modal-overlay" onClick={() => setShowSportsModal(false)}>
           <div className="gcs-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px', maxHeight: '80vh' }}>
             <div className="gcs-header" style={{ backgroundColor: '#4a6fa5', color: '#8b0000', fontWeight: 'bold' }}>Sports</div>
+            <div style={{ padding: '15px', backgroundColor: '#4a6fa5' }}>
+              <input
+                type="text"
+                value={sportsSearchQuery}
+                onChange={(e) => setSportsSearchQuery(e.target.value)}
+                placeholder="Search sports..."
+                autoFocus
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #3a5a7c',
+                  borderRadius: '3px',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
             <div style={{ 
-              maxHeight: '60vh', 
+              maxHeight: '50vh', 
               overflowY: 'auto',
               backgroundColor: '#d4e4f7'
             }}>
-              {sportsOptions.map((sport, index) => (
+              {filteredSportsOptions.map((sport, index) => (
                 <div 
                   key={sport}
                   onClick={() => handleSportsSelect(sport)}
