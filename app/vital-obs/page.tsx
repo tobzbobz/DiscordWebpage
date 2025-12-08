@@ -85,9 +85,6 @@ function NumericInput({ value, onChange, className = '', step = 1, min, max, pla
       )}
     </div>
   );
-        </div>
-      )}
-    </div>
   )
 }
 

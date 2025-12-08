@@ -618,6 +618,18 @@ export default function PastMedicalHistoryPage() {
         .form-row {
           display: flex;
           gap: 30px;
+      }
+    </div>
+  );
+}
+      }
+    </div>
+  );
+}
+      }
+    </div>
+  );
+}
           margin-bottom: 20px;
           align-items: flex-start;
         }
