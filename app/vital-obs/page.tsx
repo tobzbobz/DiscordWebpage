@@ -32,35 +32,33 @@ interface NumericInputProps {
 function NumericInput({ value, onChange, className = '', step = 1, min, max, placeholder, style, disabled }: NumericInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   
-  const saveDraft = () => {
-    if (!incidentId) return
-    try {
-      const draft = {
-        showNewVitals,
-        time,
-        gcs,
-        heartRate,
-        heartRateBpm,
-        respiratoryRate,
-        bloodPressure,
-        spo2,
-        ecg,
-        bloodGlucose,
-        capRefill,
-        temperature,
-        painScore,
-        pupils,
-        etco2,
-        skin,
-        pefr,
-        notes,
-        notesValue
-      }
-      localStorage.setItem(`vitals_draft_${incidentId}`, JSON.stringify(draft));
-    } catch (e) {
-      // Fail silently
+  const increment = () => {
+    const currentValue = parseFloat(value) || 0
+    const newValue = currentValue + step
+    if (max === undefined || newValue <= max) {
+      onChange(newValue.toString())
     }
   }
+
+  const decrement = () => {
+    const currentValue = parseFloat(value) || 0
+    const newValue = currentValue - step
+    if (min === undefined || newValue >= min) {
+      onChange(newValue.toString())
+    const [pdfOption, setPdfOption] = useState(true)
+    }
+  }
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      increment()
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      decrement()
+    }
+  }
+
   return (
     <div className="numeric-input-wrapper" style={style}>
       <input
@@ -85,6 +83,7 @@ function NumericInput({ value, onChange, className = '', step = 1, min, max, pla
     </div>
   );
 }
+
 
 export default function VitalObsPage() {
     // ...existing code...
@@ -146,6 +145,7 @@ export default function VitalObsPage() {
   })
   
   // Saved medications array - initialize from localStorage
+  const [medAtpViolation, setMedAtpViolation] = useState('')
   const [savedMeds, setSavedMeds] = useState<any[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(`meds_${incidentId}`)
@@ -6209,26 +6209,28 @@ export default function VitalObsPage() {
       <ConfirmationModal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
-          onConfirm={() => confirmSubmitEPRF(pdfOption)}
-        >
-          <div className="mt-4">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={pdfOption}
-                onChange={e => setPdfOption(e.target.checked)}
-              />
-              Download PDF after submit
-            </label>
-          </div>
-        </ConfirmationModal>
+        onConfirm={confirmSubmitEPRF}
         title="Submit ePRF"
-        message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database\n• Download the PDF to your device`}
+        message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database\n\n${pdfOption ? '✓ PDF will be downloaded after submit' : '✗ PDF download disabled'}`}
         confirmText="Yes, Submit ePRF"
         cancelText="Cancel"
         type="success"
         isLoading={isSubmitting}
       />
+
+      {/* PDF Option Checkbox */}
+      {showSubmitModal && (
+        <div style={{ position: 'fixed', bottom: '200px', left: '50%', transform: 'translateX(-50%)', zIndex: 10001, background: 'white', padding: '10px', borderRadius: '5px', boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={pdfOption}
+              onChange={e => setPdfOption(e.target.checked)}
+            />
+            <span style={{ fontSize: '14px', color: '#1a3a5c' }}>Download PDF after submit</span>
+          </label>
+        </div>
+      )}
 
       <ValidationErrorModal
         isOpen={showValidationErrorModal}
