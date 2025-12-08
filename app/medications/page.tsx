@@ -79,7 +79,6 @@ function NumericInput({ value, onChange, className = '', step = 1, min, max, pla
 }
 
 export default function MedicationsPage() {
-  export default function MedicationsPage() {
     // ...existing code...
     const [showChat, setShowChat] = useState(false);
     const [chatUnreadCount, setChatUnreadCount] = useState(0);

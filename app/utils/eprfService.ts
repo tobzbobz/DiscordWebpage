@@ -133,60 +133,63 @@ export async function handleSubmitEPRF(incidentId: string, fleetId: string): Pro
   success: boolean; 
   validationResult?: ValidationResult;
   error?: string 
-}> {
-  try {
-    // First validate all sections
-    const validationResult = validateAllSections(incidentId)
-    
-    if (!validationResult.isValid) {
-      return { 
-        success: false, 
-        validationResult,
-        error: 'Please complete all required fields before submitting' 
-      }
-    }
-    
-    const currentLetter = getCurrentPatientLetter(incidentId)
-    
-    // Collect all ePRF data
-    const eprfData = collectEPRFData(incidentId, currentLetter)
-    
-    // Generate and download PDF
-    downloadEPRFPdf(eprfData)
-    
-    // Save to database
+  }> {
     try {
-      const response = await fetch('/api/eprf/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          incidentId,
-          fleetId,
-          patientLetter: currentLetter,
-          data: eprfData,
-          submittedAt: new Date().toISOString()
-        })
-      })
-      
-      if (!response.ok) {
-        console.warn('Database save failed, but PDF was downloaded')
+      // First validate all sections
+      const validationResult = validateAllSections(incidentId)
+    
+      if (!validationResult.isValid) {
+        return { 
+          success: false, 
+          validationResult,
+          error: 'Please complete all required fields before submitting' 
+        }
       }
-    } catch (dbError) {
-      console.warn('Database save failed, but PDF was downloaded:', dbError)
-      // Don't fail the whole operation if DB save fails
+    
+      const currentLetter = getCurrentPatientLetter(incidentId)
+    
+      // Collect all ePRF data
+      const eprfData = collectEPRFData(incidentId, currentLetter)
+    
+      // Generate and download PDF if requested
+      const downloadPdf = arguments.length > 2 ? arguments[2] : true;
+      if (downloadPdf) {
+        downloadEPRFPdf(eprfData)
+      }
+    
+      // Save to database
+      try {
+        const response = await fetch('/api/eprf/submit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            incidentId,
+            fleetId,
+            patientLetter: currentLetter,
+            data: eprfData,
+            submittedAt: new Date().toISOString()
+          })
+        })
+      
+        if (!response.ok) {
+          console.warn('Database save failed, but PDF was downloaded')
+        }
+      } catch (dbError) {
+        console.warn('Database save failed, but PDF was downloaded:', dbError)
+        // Don't fail the whole operation if DB save fails
+      }
+    
+      // Archive this patient's data
+      archivePatientData(incidentId, currentLetter)
+      addSavedPatient(incidentId, currentLetter)
+    
+      return { success: true }
+    } catch (error) {
+      console.error('Error submitting ePRF:', error)
+      return { success: false, error: 'Failed to submit ePRF' }
     }
-    
-    // Archive this patient's data
-    archivePatientData(incidentId, currentLetter)
-    addSavedPatient(incidentId, currentLetter)
-    
-    return { success: true }
-  } catch (error) {
-    console.error('Error submitting ePRF:', error)
-    return { success: false, error: 'Failed to submit ePRF' }
-  }
 }
 
 // Get all patient data for an incident (for viewing/editing previous patients)

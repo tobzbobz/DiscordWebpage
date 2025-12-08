@@ -505,7 +505,7 @@ export default function InterventionsPage() {
   const confirmSubmitEPRF = async () => {
     setIsSubmitting(true)
     try {
-      const result = await submitEPRFService(incidentId, fleetId)
+      const result = await submitEPRFService(incidentId, fleetId, pdfOption)
       if (result.success) {
         setShowSubmitModal(false)
         router.push('/dashboard')
@@ -1942,25 +1942,13 @@ export default function InterventionsPage() {
       <ConfirmationModal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
-        onConfirm={() => confirmSubmitEPRF(pdfOption)}
+        onConfirm={confirmSubmitEPRF}
         title="Submit ePRF"
         message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database\n• Download the PDF to your device`}
         confirmText="Yes, Submit ePRF"
         cancelText="Cancel"
         type="success"
         isLoading={isSubmitting}
-        extraContent={
-          <div className="mt-4">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={pdfOption}
-                onChange={e => setPdfOption(e.target.checked)}
-              />
-              Download PDF after submit
-            </label>
-          </div>
-        }
       />
 
       {/* Validation Error Modal */}

@@ -57,11 +57,14 @@ function NumericInput({ value, onChange, className = '', step = 1, min, max, pla
         notes,
         notesValue
       }
-      localStorage.setItem(`vitals_draft_${incidentId}`, JSON.stringify(draft))
+      localStorage.setItem(`vitals_draft_${incidentId}`, JSON.stringify(draft));
     } catch (e) {
       // Fail silently
     }
   }
+  return (
+    <div className="numeric-input-wrapper" style={style}>
+      <input
         ref={inputRef}
         type="number"
         value={value}
@@ -78,6 +81,10 @@ function NumericInput({ value, onChange, className = '', step = 1, min, max, pla
         <div className="numeric-arrows">
           <button type="button" className="numeric-arrow-btn up" onClick={increment} tabIndex={-1}>▲</button>
           <button type="button" className="numeric-arrow-btn down" onClick={decrement} tabIndex={-1}>▼</button>
+        </div>
+      )}
+    </div>
+  );
         </div>
       )}
     </div>

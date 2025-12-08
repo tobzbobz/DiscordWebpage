@@ -25,6 +25,43 @@ interface MediaItem {
 }
 
 export default function MediaPage() {
+        // Navigation handler for sidebar
+        const navigateTo = (section: string) => {
+          router.push(`/${section}?id=${incidentId}&fleetId=${fleetId}`)
+        }
+
+        // Discard selected media
+        const handleDiscard = () => {
+          if (selectedMedia) {
+            setMediaItems(prev => prev.filter(item => item.id !== selectedMedia))
+            setSelectedMedia(null)
+            setRenamingId(null)
+          }
+        }
+
+        // Select media item
+        const handleSelectMedia = (id: string) => {
+          setSelectedMedia(id)
+          setRenamingId(null)
+        }
+
+        // Start renaming media item
+        const handleRenameStart = (item: MediaItem) => {
+          setRenamingId(item.id)
+          setRenameValue(item.name)
+        }
+
+        // Transfer patient handler
+        const handleTransferClick = () => {
+          setShowTransferModal(true)
+        }
+
+        // Transfer complete handler
+        const handleTransferComplete = () => {
+          setShowTransferModal(false)
+          setSuccessMessage({ title: 'Transfer Complete', message: 'Patient record transferred successfully.' })
+          setShowSuccessModal(true)
+        }
       // ...existing code...
         // PDF download option state
         const [pdfOption, setPdfOption] = useState(false)
@@ -165,7 +202,7 @@ export default function MediaPage() {
   const confirmSubmitEPRF = async () => {
     setIsSubmitting(true)
     try {
-      const result = await submitEPRFService(incidentId, fleetId)
+      const result = await submitEPRFService(incidentId, fleetId, pdfOption)
       if (result.success) {
         setShowSubmitModal(false)
         router.push('/dashboard')
@@ -287,25 +324,7 @@ export default function MediaPage() {
 
         mediaRecorder.start()
         setIsSubmitting(true)
-        try {
-          const result = await submitEPRFService(incidentId, fleetId, pdfOption)
-          if (result.success) {
-            setShowSubmitModal(false)
-            router.push('/dashboard')
-          } else if (result.validationResult) {
-            setShowSubmitModal(false)
-            setValidationErrors(result.validationResult.fieldErrors)
-            setIncompleteSections(result.validationResult.incompleteSections)
-            setShowValidationErrorModal(true)
-          }
-        } catch (error) {
-          console.error('Submit error:', error)
-          alert('An error occurred while submitting. Please try again.')
-        } finally {
-           setIsSubmitting(false);
-         }
-     setRenameValue(item.name);
-   }
+        // ...existing code...
 
   // Rename confirm (on blur or Enter)
   const handleRenameConfirm = () => {
@@ -667,25 +686,13 @@ export default function MediaPage() {
       <ConfirmationModal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
-        onConfirm={() => confirmSubmitEPRF(pdfOption)}
+        onConfirm={confirmSubmitEPRF}
         title="Submit ePRF"
         message={`Are you sure you want to submit this ePRF?\n\nThis will:\n• Generate a PDF report for Patient ${patientLetter}\n• Save the record to the database\n• Download the PDF to your device`}
         confirmText="Yes, Submit ePRF"
         cancelText="Cancel"
         type="success"
         isLoading={isSubmitting}
-        extraContent={
-          <div className="mt-4">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={pdfOption}
-                onChange={e => setPdfOption(e.target.checked)}
-              />
-              Download PDF after submit
-            </label>
-          </div>
-        }
       />
 
       <ValidationErrorModal
@@ -754,5 +761,5 @@ export default function MediaPage() {
         />
       )}
     </div>
-  )
-}
+  );
+};

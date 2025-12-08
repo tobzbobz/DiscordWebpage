@@ -1287,7 +1287,8 @@ export default function DashboardPage() {
                     <div className="eprf-actions">
                       {group.patients.length === 1 ? (
                         <>
-                          {(group.permissionLevel === 'owner' || group.permissionLevel === 'manage' || group.permissionLevel === 'edit') && (
+                          {/* Only allow edit for patient owner or current user */}
+                          {(currentUser && group.patients[0].author === currentUser.discordId) && (
                             <button 
                               className="eprf-action-btn btn-edit"
                               onClick={() => handleEdit(group.patients[0])}
@@ -1295,41 +1296,38 @@ export default function DashboardPage() {
                               Edit
                             </button>
                           )}
-                          {/* Delete for owner and patient owner only */}
-                          {(group.permissionLevel === 'owner' || (currentUser && group.patients[0].authorDiscordId === currentUser.discordId)) ? (
+                          {/* Delete for patient owner only */}
+                          {(currentUser && group.patients[0].author === currentUser.discordId) && (
                             <button 
                               className="eprf-action-btn btn-delete"
                               onClick={() => handleDeleteClick(group.patients[0])}
                             >
                               Delete
                             </button>
-                          ) : null}
+                          )}
                         </>
                       ) : (
                         <>
+                          {/* Edit/Delete for patient owner only */}
                           {group.patients.map(patient => (
-                          {/* Edit for manage/edit/owner, Delete for owner and patient owner only */}
-                          {group.patients.map(patient => (
-                            <>
-                              {(group.permissionLevel === 'owner' || group.permissionLevel === 'manage' || group.permissionLevel === 'edit') && (
+                            <div key={patient.patientLetter} style={{ display: 'inline-block', marginRight: 8 }}>
+                              {(currentUser && patient.author === currentUser.discordId) && (
                                 <button 
-                                  key={patient.patientLetter}
                                   className="eprf-action-btn btn-edit"
                                   onClick={() => handleEdit(patient)}
                                 >
                                   Edit {patient.patientLetter}
                                 </button>
                               )}
-                              {(group.permissionLevel === 'owner' || (currentUser && patient.authorDiscordId === currentUser.discordId)) && (
+                              {(currentUser && patient.author === currentUser.discordId) && (
                                 <button 
-                                  key={`del-${patient.patientLetter}`}
                                   className="eprf-action-btn btn-delete"
                                   onClick={() => handleDeleteClick(patient)}
                                 >
                                   Delete {patient.patientLetter}
                                 </button>
                               )}
-                            </>
+                            </div>
                           ))}
                         </>
                       )}

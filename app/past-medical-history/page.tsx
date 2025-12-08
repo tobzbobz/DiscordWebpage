@@ -23,6 +23,16 @@ interface DrawnLine {
 }
 
 export default function PastMedicalHistoryPage() {
+      // Drawing and canvas states
+      const [drawnLines, setDrawnLines] = useState<DrawnLine[]>([]);
+      const [history, setHistory] = useState<DrawnLine[][]>([[]]);
+      const [historyIndex, setHistoryIndex] = useState(0);
+      const [isDrawing, setIsDrawing] = useState(false);
+      const [currentLine, setCurrentLine] = useState<{ x: number; y: number }[]>([]);
+      const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
+      const [zoom, setZoom] = useState(1);
+      // PDF download option state
+      const [pdfOption, setPdfOption] = useState(false);
     // ...existing code...
     const [showChat, setShowChat] = useState(false);
     const [chatUnreadCount, setChatUnreadCount] = useState(0);
@@ -1359,5 +1369,5 @@ export default function PastMedicalHistoryPage() {
         />
       )}
     </div>
-  )
+  );
 }
