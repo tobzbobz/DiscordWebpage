@@ -211,6 +211,7 @@ export default function VitalObsPage() {
   const [medBrokenAmpoule, setMedBrokenAmpoule] = useState(false)
   const [medDiscarded, setMedDiscarded] = useState(false)
   const [medNotPossible, setMedNotPossible] = useState('')
+  const [medNotPossibleReason, setMedNotPossibleReason] = useState('')
   const [medSearchQuery, setMedSearchQuery] = useState('')
   const [medValidationErrors, setMedValidationErrors] = useState<{[key: string]: boolean}>({})
   const [medPickerDay, setMedPickerDay] = useState(1)
@@ -925,8 +926,7 @@ export default function VitalObsPage() {
       drawnUpNotUsed: medDrawnUpNotUsed,
       brokenAmpoule: medBrokenAmpoule,
       discarded: medDiscarded,
-      notPossible: medNotPossible,
-      notPossibleReason: medNotPossibleReason
+      notPossible: medNotPossibleReason
     }
     setSavedMeds([...savedMeds, medEntry])
     return true
