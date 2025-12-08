@@ -622,42 +622,6 @@ export default function PastMedicalHistoryPage() {
     </div>
   );
 }
-          margin-bottom: 20px;
-          align-items: flex-start;
-        }
-        
-        .form-field {
-          display: flex;
-          flex-direction: column;
-          gap: 5px;
-        }
-        
-        .field-label {
-          color: #1a3a5c;
-          font-size: 14px;
-          font-weight: 500;
-        }
-        
-        .field-label.required::after {
-          content: '*';
-          color: #cc0000;
-          margin-left: 2px;
-        }
-        
-        .radio-group {
-          display: flex;
-          gap: 40px;
-          align-items: center;
-        }
-        
-        .radio-option {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          color: #1a3a5c;
-          font-size: 14px;
-          cursor: pointer;
-        }
         
         .radio-option input[type="radio"] {
           width: 18px;
