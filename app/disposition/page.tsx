@@ -212,7 +212,7 @@ export default function DispositionPage() {
 const confirmSubmitEPRF = async () => {
   setIsSubmitting(true)
   try {
-    const result = await submitEPRFService(incidentId, fleetId)    
+    const result = await submitEPRFService(incidentId, fleetId, pdfOption)
     if (result.success) {
       setShowSubmitModal(false)
       setSuccessMessage({
