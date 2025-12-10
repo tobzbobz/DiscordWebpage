@@ -11,6 +11,7 @@ interface TransferModalProps {
   incidentId: string
   patientLetter?: string // If provided, transfer single patient. Otherwise transfer all.
   isLoading?: boolean
+  canTransfer?: boolean // Whether current user has permission to transfer
 }
 
 export default function TransferModal({
@@ -19,7 +20,8 @@ export default function TransferModal({
   onTransferComplete,
   incidentId,
   patientLetter,
-  isLoading = false
+  isLoading = false,
+  canTransfer = true // Default to true for backwards compatibility
 }: TransferModalProps) {
   const [users, setUsers] = useState<User[]>([])
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
