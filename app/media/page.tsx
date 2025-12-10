@@ -11,7 +11,7 @@ import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
 import ConnectionStatus from '../components/ConnectionStatus'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
-import ChatStrip from '../components/ChatStrip';
+import ChatWidget from '../components/ChatWidget'
 import { checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
@@ -760,15 +760,17 @@ export default function MediaPage() {
         currentUserPermission={userPermission || 'view'}
       />
       {/* Chat Widget */}
-      {currentUser && showChat && (
-        <ChatStrip
+      {currentUser && (
+        <ChatWidget
           incidentId={incidentId}
           discordId={currentUser.discordId}
           callsign={currentUser.callsign}
           patientLetter={patientLetter}
-          collaborators={collaborators}
+          onUnreadChange={setChatUnreadCount}
+          isOpen={showChat}
         />
       )}
+      
       {showChat && (
         <div className="fixed inset-0 z-40 bg-black/30 cursor-pointer" onClick={() => setShowChat(false)} />
       )}

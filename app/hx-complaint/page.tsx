@@ -12,7 +12,7 @@ import ConnectionStatus from '../components/ConnectionStatus'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
 import { checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
-import ChatStrip from '../components/ChatStrip';
+import ChatWidget from '../components/ChatWidget'
 
 export const runtime = 'edge'
 
@@ -1043,16 +1043,17 @@ export default function HxComplaintPage() {
           </div>
         </div>
       )}
-      {/* Chat Widget */}
-      {currentUser && showChat && (
-        <ChatStrip
-          incidentId={incidentId}
-          discordId={currentUser.discordId}
-          callsign={currentUser.callsign}
-          patientLetter={patientLetter}
-          collaborators={collaborators}
-        />
-      )}
+    {/* Chat Widget */}
+    {currentUser && (
+      <ChatWidget
+        incidentId={incidentId}
+        discordId={currentUser.discordId}
+        callsign={currentUser.callsign}
+        patientLetter={patientLetter}
+        onUnreadChange={setChatUnreadCount}
+        isOpen={showChat}
+      />
+    )}
       {showChat && (
         <div className="fixed inset-0 z-40 bg-black/30 cursor-pointer" onClick={() => setShowChat(false)} />
       )}

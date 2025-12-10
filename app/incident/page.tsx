@@ -16,7 +16,7 @@ import KeyboardShortcuts from '../components/KeyboardShortcuts'
 import { saveEPRFRecord, createEPRFRecord, getEPRFRecord } from '../utils/eprfHistoryService'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
 import { checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canEdit, canManageCollaborators } from '../utils/apiClient'
-import ChatStrip from '../components/ChatStrip';
+import ChatWidget from '../components/ChatWidget'
 
 
 export const runtime = 'edge'
