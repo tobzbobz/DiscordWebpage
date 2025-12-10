@@ -45,7 +45,6 @@ function NumericInput({ value, onChange, className = '', step = 1, min, max, pla
     const newValue = currentValue - step
     if (min === undefined || newValue >= min) {
       onChange(newValue.toString())
-    const [pdfOption, setPdfOption] = useState(true)
     }
   }
 
@@ -174,6 +173,7 @@ export default function VitalObsPage() {
   
   // Competency tool modal state
   const [showCompetencyModal, setShowCompetencyModal] = useState(false)
+  const [pdfOption, setPdfOption] = useState(true)
   const [competencyTime, setCompetencyTime] = useState('')
   const [competencyUnderstandInfo, setCompetencyUnderstandInfo] = useState<'yes' | 'no' | ''>('')
   const [competencyUnderstandConsequences, setCompetencyUnderstandConsequences] = useState<'yes' | 'no' | ''>('')
