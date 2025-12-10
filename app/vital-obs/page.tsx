@@ -14,6 +14,7 @@ import { getCurrentUser, clearCurrentUser } from '../utils/userService'
 import ChatWidget from '../components/ChatWidget'
 import ChatStrip from '../components/ChatStrip';
 import { checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
+import ChatStrip from '../components/ChatStrip';
 
 export const runtime = 'edge'
 
@@ -1088,6 +1089,21 @@ export default function VitalObsPage() {
       setShowInterventionEntryModal(false)
     }
   }
+
+  const handleCompetencyCancel = () => {
+  setShowCompetencyModal(false)
+  // Return to last section
+  if (lastSection === 'vital-obs') {
+    setShowNewVitals(true)
+  } else if (lastSection === 'medications') {
+    setShowMedEntryModal(true)
+  } else if (lastSection === 'interventions') {
+    setShowInterventionEntryModal(true)
+  } else {
+    // Default: stay on vitals
+    setShowNewVitals(false)
+  }
+}
   
   const handleIntSaveAndEnterAnother = () => {
     if (saveIntervention()) {
@@ -1880,27 +1896,12 @@ export default function VitalObsPage() {
                   else setLastSection('vital-obs')
                   setShowCompetencyModal(true)
                 }}>Competency Tool</button>
-                // Competency Tool cancel logic
-                const handleCompetencyCancel = () => {
-                  setShowCompetencyModal(false)
-                  // Return to last section
-                  if (lastSection === 'vital-obs') {
-                    setShowNewVitals(true)
-                  } else if (lastSection === 'medications') {
-                    setShowMedEntryModal(true)
-                  } else if (lastSection === 'interventions') {
-                    setShowInterventionEntryModal(true)
-                  } else {
-                    // Default: stay on vitals
-                    setShowNewVitals(false)
-                  }
-                }
               </div>
             </section>
           ) : (
             <section className="incident-section">
               <h2 className="section-title">Vital Observation(s)</h2>
-              
+
               <div className="vitals-grid">
                 <div className="vital-field">
                   <label className={`field-label required ${validationErrors.time ? 'error' : ''}`}>Time</label>
@@ -2121,19 +2122,7 @@ export default function VitalObsPage() {
             <button className="footer-btn blue" onClick={handleSaveAndEnterAnother}>Save and enter another set of observations</button>
             <button className="footer-btn blue" onClick={handleSaveAndReturn}>Save and return to Vital Obs/Treat</button>
           </div>
-          {/* Chat Widget for new vitals/meds/interventions views */}
-          {currentUser && showChat && (
-            <ChatStrip
-              incidentId={incidentId}
-              discordId={currentUser.discordId}
-              callsign={currentUser.callsign}
-              patientLetter={patientLetter}
-              collaborators={collaborators}
-            />
-          )}
-          {showChat && (
-            <div className="fixed inset-0 z-40 bg-black/30 cursor-pointer" onClick={() => setShowChat(false)} />
-          )}
+          {/* Chat handled by ChatWidget at the bottom. Removed duplicate ChatStrip and collaborators prop. */}
         </div>
       )}
 
