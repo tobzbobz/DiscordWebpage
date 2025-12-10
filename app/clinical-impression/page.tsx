@@ -12,7 +12,6 @@ import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
 import ConnectionStatus from '../components/ConnectionStatus'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
-import ChatStrip from '../components/ChatStrip';
 import { checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
