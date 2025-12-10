@@ -82,143 +82,36 @@ function NumericInput({ value, onChange, className = '', step = 1, min, max, pla
 }
 
 export default function InterventionsPage() {
-      const [savedInterventions, setSavedInterventions] = useState<any[]>([]);
-    // ...existing code...
-    // PDF download option state
-    const [showInterventionViewModal, setShowInterventionViewModal] = useState(false);
-    const [viewingRecord, setViewingRecord] = useState<any>(null);
-      <div className="eprf-dashboard incident-page">
-        <div className="eprf-nav">
-          ...existing code...
-        </div>
+  // ============ HOOKS AND STATE (MUST BE FIRST) ============
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const incidentId = searchParams.get('id') || ''
+  const fleetId = searchParams.get('fleetId') || ''
 
-        <div className="incident-layout">
-          <aside className="sidebar">
-            ...existing code...
-          </aside>
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [patientLetter, setPatientLetter] = useState('A')
+  const [userPermission, setUserPermission] = useState<PermissionLevel>('view')
+  const [canTransfer, setCanTransfer] = useState(false)
 
-          <main className="incident-content">
-            {!showNewIntervention ? (
-              <section className="incident-section">
-                <h2 className="section-title">Intervention(s)</h2>
-                {savedInterventions.length === 0 ? (
-                  <div className="no-record-message">No record found.</div>
-                ) : (
-                  <div style={{ marginTop: '20px' }}>
-                    {savedInterventions.map((intervention, index) => (
-                      <div 
-                        key={index} 
-                        onClick={() => { setViewingRecord(intervention); setShowInterventionViewModal(true); }}
-                        style={{
-                          backgroundColor: '#d8e8f8',
-                          padding: '15px',
-                          marginBottom: '10px',
-                          borderRadius: '4px',
-                          border: '1px solid #a8c5e0',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <span style={{ fontWeight: 'bold', color: '#2c5282' }}>
-                            Time: {intervention.time || 'No time recorded'} | Performed by: {intervention.performedBy || 'Not specified'}
-                          </span>
-                          <span style={{ fontSize: '11px', color: '#718096', fontStyle: 'italic' }}>(click to view full)</span>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '14px' }}>
-                          {intervention.airway && <div><strong>Airway:</strong> {intervention.airway}</div>}
-                          {intervention.ventilation && <div><strong>Ventilation:</strong> {intervention.ventilation}</div>}
-                          {intervention.rsi && <div><strong>RSI:</strong> {intervention.rsi}</div>}
-                          {intervention.cpr && <div><strong>CPR:</strong> {intervention.cpr}</div>}
-                          {intervention.defibrillation && <div><strong>Defibrillation:</strong> {intervention.defibrillation}</div>}
-                          {intervention.ivCannulation && <div><strong>IV Cannulation:</strong> {intervention.ivCannulation}</div>}
-                          {intervention.ioAccess && <div><strong>IO Access:</strong> {intervention.ioAccess}</div>}
-                          {intervention.positioning && <div><strong>Positioning:</strong> {intervention.positioning}</div>}
-                          {intervention.splintDressingTag && <div><strong>Splint/Dressing/Tag:</strong> {intervention.splintDressingTag}</div>}
-                          {intervention.tourniquet && <div><strong>Tourniquet:</strong> {intervention.tourniquet}</div>}
-                          {intervention.otherInterventionNotes && <div style={{ gridColumn: '1 / -1' }}><strong>Other Notes:</strong> {intervention.otherInterventionNotes}</div>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {/* Intervention View Modal (read-only, consistent style) */}
-                {showInterventionViewModal && viewingRecord && (
-                  <div className="modal-overlay" onClick={() => { setShowInterventionViewModal(false); setViewingRecord(null); }}>
-                    <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', width: '95%', overflowY: 'auto', maxHeight: '80vh' }}>
-                      <div className="modal-header">Intervention Record</div>
-                      <div className="modal-body">
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                          <div><strong>Time:</strong> {viewingRecord.time || 'Not recorded'}</div>
-                          {viewingRecord.performedBy && <div><strong>Performed By:</strong> {viewingRecord.performedBy}</div>}
-                          {viewingRecord.airway && <div><strong>Airway:</strong> {viewingRecord.airway}</div>}
-                          {viewingRecord.airwayMethod && <div><strong>Airway Method:</strong> {viewingRecord.airwayMethod}</div>}
-                          {viewingRecord.ventilation && <div><strong>Ventilation:</strong> {viewingRecord.ventilation}</div>}
-                          {viewingRecord.peep && <div><strong>PEEP:</strong> {viewingRecord.peep}</div>}
-                          {viewingRecord.cpap && <div><strong>CPAP:</strong> {viewingRecord.cpap}</div>}
-                          {viewingRecord.rsi && <div><strong>RSI:</strong> {viewingRecord.rsi}</div>}
-                          {viewingRecord.cpr && <div><strong>CPR:</strong> {viewingRecord.cpr}</div>}
-                          {viewingRecord.cprCompressions && <div><strong>Compressions:</strong> {viewingRecord.cprCompressions}</div>}
-                          {viewingRecord.cprVentilations && <div><strong>Ventilations:</strong> {viewingRecord.cprVentilations}</div>}
-                          {viewingRecord.cprContinuous && <div><strong>Continuous:</strong> Yes</div>}
-                          {viewingRecord.cprDiscontinued && <div><strong>CPR Discontinued:</strong> {viewingRecord.cprDiscontinued}</div>}
-                          {viewingRecord.defibrillation && <div><strong>Defibrillation:</strong> {viewingRecord.defibrillation}</div>}
-                          {viewingRecord.defibrillationJoules && <div><strong>Defibrillation Joules:</strong> {viewingRecord.defibrillationJoules}</div>}
-                          {viewingRecord.cardioversion && <div><strong>Cardioversion:</strong> {viewingRecord.cardioversion}</div>}
-                          {viewingRecord.pacing && <div><strong>Pacing:</strong> {viewingRecord.pacing}</div>}
-                          {viewingRecord.valsalva && <div><strong>Valsalva:</strong> {viewingRecord.valsalva}</div>}
-                          {viewingRecord.ivCannulation && <div><strong>IV Cannulation:</strong> {viewingRecord.ivCannulation}</div>}
-                          {viewingRecord.ivSite && <div><strong>IV Site:</strong> {viewingRecord.ivSite}</div>}
-                          {viewingRecord.ivAttempts && <div><strong>IV Attempts:</strong> {viewingRecord.ivAttempts}</div>}
-                          {viewingRecord.ivSuccessful && <div><strong>IV Successful:</strong> {viewingRecord.ivSuccessful}</div>}
-                          {viewingRecord.ioAccess && <div><strong>IO Access:</strong> {viewingRecord.ioAccess}</div>}
-                          {viewingRecord.ioSite && <div><strong>IO Site:</strong> {viewingRecord.ioSite}</div>}
-                          {viewingRecord.ioAttempts && <div><strong>IO Attempts:</strong> {viewingRecord.ioAttempts}</div>}
-                          {viewingRecord.ioSuccessful && <div><strong>IO Successful:</strong> {viewingRecord.ioSuccessful}</div>}
-                          {viewingRecord.ioNotes && <div><strong>IO Notes:</strong> {viewingRecord.ioNotes}</div>}
-                          {viewingRecord.chestDecompression && <div><strong>Chest Decompression:</strong> {viewingRecord.chestDecompression}</div>}
-                          {viewingRecord.stomachDecompression && <div><strong>Stomach Decompression:</strong> {viewingRecord.stomachDecompression}</div>}
-                          {viewingRecord.catheterTroubleshooting && <div><strong>Catheter Troubleshooting:</strong> {viewingRecord.catheterTroubleshooting}</div>}
-                          {viewingRecord.nerveBlock && <div><strong>Nerve Block:</strong> {viewingRecord.nerveBlock}</div>}
-                          {viewingRecord.positioning && <div><strong>Positioning:</strong> {viewingRecord.positioning}</div>}
-                          {viewingRecord.positioningPosition && <div><strong>Positioning Position:</strong> {viewingRecord.positioningPosition}</div>}
-                          {viewingRecord.positioningLegsElevated && <div><strong>Legs Elevated:</strong> {viewingRecord.positioningLegsElevated}</div>}
-                          {viewingRecord.positioningOther && <div><strong>Other Positioning:</strong> {viewingRecord.positioningOther}</div>}
-                          {viewingRecord.splintDressingTag && <div><strong>Splint/Dressing/Tag:</strong> {viewingRecord.splintDressingTag}</div>}
-                          {viewingRecord.splintSelection && <div><strong>Splint Selection:</strong> {viewingRecord.splintSelection}</div>}
-                          {viewingRecord.splintOther && <div><strong>Other Splint:</strong> {viewingRecord.splintOther}</div>}
-                          {viewingRecord.nasalTamponade && <div><strong>Nasal Tamponade:</strong> {viewingRecord.nasalTamponade}</div>}
-                          {viewingRecord.tourniquet && <div><strong>Tourniquet:</strong> {viewingRecord.tourniquet}</div>}
-                          {viewingRecord.tourniquetLocation && <div><strong>Tourniquet Location:</strong> {viewingRecord.tourniquetLocation}</div>}
-                          {viewingRecord.tourniquetSuccessful && <div><strong>Tourniquet Successful:</strong> {viewingRecord.tourniquetSuccessful}</div>}
-                          {viewingRecord.limbReduction && <div><strong>Limb Reduction:</strong> {viewingRecord.limbReduction}</div>}
-                          {viewingRecord.epleManoeuvre && <div><strong>Eple Manoeuvre:</strong> {viewingRecord.epleManoeuvre}</div>}
-                        </div>
-                        {viewingRecord.otherInterventionNotes && (
-                          <div style={{ marginTop: '15px' }}>
-                            <strong>Other Intervention/Notes:</strong>
-                            <div style={{ whiteSpace: 'pre-wrap', background: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc', padding: '10px', marginTop: '4px' }}>{viewingRecord.otherInterventionNotes}</div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="modal-actions" style={{ textAlign: 'center', marginTop: '18px' }}>
-                        <button className="modal-btn ok" onClick={() => { setShowInterventionViewModal(false); setViewingRecord(null); }}>Go Back</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </section>
-            ) : (
-              <section className="incident-section">
-                ...existing code...
-              </section>
-            )}
-            {/* ...other modals... */}
-          </main>
-        </div>
-        {/* ...other modals... */}
-      </div>
+  const [showAddPatientModal, setShowAddPatientModal] = useState(false)
+  const [showSubmitModal, setShowSubmitModal] = useState(false)
+  const [showValidationErrorModal, setShowValidationErrorModal] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [showTransferModal, setShowTransferModal] = useState(false)
+  const [showPatientManagementModal, setShowPatientManagementModal] = useState(false)
+  const [showCollaboratorsModal, setShowCollaboratorsModal] = useState(false)
+  const [showChat, setShowChat] = useState(false)
+  const [chatUnreadCount, setChatUnreadCount] = useState(0)
 
-  
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [incompleteSections, setIncompleteSections] = useState<string[]>([])
+  const [eprfValidationErrors, setEprfValidationErrors] = useState<{[key: string]: string[]}>({})
+  const [successMessage, setSuccessMessage] = useState({ title: '', message: '' })
+
+  const [savedInterventions, setSavedInterventions] = useState<any[]>([])
+  const [showInterventionViewModal, setShowInterventionViewModal] = useState(false)
+  const [viewingRecord, setViewingRecord] = useState<any>(null)
+
   const [showNewIntervention, setShowNewIntervention] = useState(false)
   const [validationErrors, setValidationErrors] = useState<{[key: string]: boolean}>({})
   const [showAirwayModal, setShowAirwayModal] = useState(false)
@@ -233,20 +126,18 @@ export default function InterventionsPage() {
   const [showOtherNotesModal, setShowOtherNotesModal] = useState(false)
   const [showDateTimePicker, setShowDateTimePicker] = useState(false)
   const [showCPRDiscontinuedPicker, setShowCPRDiscontinuedPicker] = useState(false)
-  
-  // View modal state (read-only view of submitted records)
-  
+
   // Intervention state
   const [time, setTime] = useState('')
   const [performedBy, setPerformedBy] = useState('')
-  
+
   // Airway section
   const [airway, setAirway] = useState('')
   const [ventilation, setVentilation] = useState('')
   const [peep, setPeep] = useState('')
   const [cpap, setCpap] = useState('')
   const [rsi, setRsi] = useState('')
-  
+
   // Cardiac section
   const [cpr, setCpr] = useState('')
   const [cprCompressions, setCprCompressions] = useState('')
@@ -257,7 +148,7 @@ export default function InterventionsPage() {
   const [cardioversion, setCardioversion] = useState('')
   const [pacing, setPacing] = useState('')
   const [valsalva, setValsalva] = useState('')
-  
+
   // Invasive section
   const [ivCannulation, setIvCannulation] = useState('')
   const [ivSite, setIvSite] = useState('')
@@ -272,7 +163,7 @@ export default function InterventionsPage() {
   const [stomachDecompression, setStomachDecompression] = useState('')
   const [catheterTroubleshooting, setCatheterTroubleshooting] = useState('')
   const [nerveBlock, setNerveBlock] = useState('')
-  
+
   // Other section
   const [positioning, setPositioning] = useState('')
   const [positioningPosition, setPositioningPosition] = useState('')
@@ -288,18 +179,43 @@ export default function InterventionsPage() {
   const [limbReduction, setLimbReduction] = useState('')
   const [epleManoeuvre, setEpleManoeuvre] = useState('')
   const [otherInterventionNotes, setOtherInterventionNotes] = useState('')
-  
+
   // Modal state
   const [airwayMethod, setAirwayMethod] = useState('')
   const [defibrillationJoules, setDefibrillationJoules] = useState('')
-  
+
   // Date/time picker state
   const [pickerDay, setPickerDay] = useState(1)
   const [pickerMonth, setPickerMonth] = useState(1)
   const [pickerYear, setPickerYear] = useState(2025)
   const [pickerHour, setPickerHour] = useState(0)
   const [pickerMinute, setPickerMinute] = useState(0)
-  
+
+  // ============ EFFECTS ============
+  useEffect(() => {
+    const user = getCurrentUser()
+    if (user) {
+      setCurrentUser(user)
+    }
+    
+    const checkPermissions = async () => {
+      if (!incidentId) return
+      
+      try {
+        const access = await checkEPRFAccess(incidentId)
+        setUserPermission(access.permission)
+        
+        const transferPermission = await checkCanTransferPatient(incidentId, patientLetter)
+        setCanTransfer(transferPermission.canTransfer)
+      } catch (error) {
+        console.error('Failed to check permissions:', error)
+      }
+    }
+    
+    checkPermissions()
+  }, [incidentId, patientLetter])
+
+  // ============ CONSTANTS ============
   const airwayMethods = [
     'Manual Clear',
     'OPA',
@@ -312,17 +228,17 @@ export default function InterventionsPage() {
     'LMA',
     'Laryngoscopy'
   ]
-  
+
   const ventilationOptions = [
     'Manual',
     'Mechanical'
   ]
-  
+
   const rsiOptions = [
     'Successful',
     'Unsuccessful'
   ]
-  
+
   const splintOptions = [
     'Dressing',
     'Bandage',
@@ -333,6 +249,7 @@ export default function InterventionsPage() {
     'Cervical Lanyard'
   ]
 
+  // ============ HANDLER FUNCTIONS ============
   const handleLogout = () => {
     clearCurrentUser()
     router.replace('/')
@@ -342,8 +259,6 @@ export default function InterventionsPage() {
     const params = new URLSearchParams({ fleetId })
     router.push(`/dashboard?${params}`)
   }
-
-  // Admin Panel removed from interventions page
 
   const handleTransferClick = () => {
     setShowTransferModal(true)
@@ -364,7 +279,6 @@ export default function InterventionsPage() {
     }, 2000)
   }
   
-  // Save current intervention draft to localStorage
   const saveDraft = () => {
     if (!incidentId) return
     const draft = {
@@ -418,7 +332,6 @@ export default function InterventionsPage() {
     localStorage.setItem(`interventions_draft_${incidentId}`, JSON.stringify(draft))
   }
   
-  // Clear draft from localStorage
   const clearDraft = () => {
     if (incidentId) {
       localStorage.removeItem(`interventions_draft_${incidentId}`)
@@ -426,7 +339,6 @@ export default function InterventionsPage() {
   }
 
   const navigateTo = (section: string) => {
-    // Save draft before navigating away
     if (showNewIntervention) {
       saveDraft()
     }
@@ -444,7 +356,6 @@ export default function InterventionsPage() {
   }
 
   const handlePrevious = () => {
-    // Save draft before navigating
     if (showNewIntervention) {
       saveDraft()
     }
@@ -452,29 +363,23 @@ export default function InterventionsPage() {
   }
 
   const handleNext = () => {
-    // Save draft before navigating
     if (showNewIntervention) {
       saveDraft()
     }
-    // Navigate to next section when created
   }
 
-  // Check if there's an unsaved intervention entry with data but missing compulsory fields
   const hasUnsavedInterventionData = () => {
     if (!showNewIntervention) return false
-    // Check if any optional field has data
     const hasData = airway || ventilation || rsi || cpr || defibrillation || cardioversion ||
                     pacing || valsalva || ivCannulation || ioAccess || chestDecompression ||
                     stomachDecompression || catheterTroubleshooting || nerveBlock || positioning ||
                     splintDressingTag || nasalTamponade || tourniquet || limbReduction || 
                     epleManoeuvre || otherInterventionNotes
-    // Compulsory fields: time, performedBy
     const missingCompulsory = !time || !performedBy
     return hasData && missingCompulsory
   }
 
   const handleSubmitEPRF = () => {
-    // Check for unsaved intervention with missing compulsory fields
     if (hasUnsavedInterventionData()) {
       const errors: {[key: string]: boolean} = {}
       if (!time) errors.time = true
