@@ -1,4 +1,3 @@
-import ChatStrip from '../components/ChatStrip';
 "use client"
 
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -17,6 +16,8 @@ import KeyboardShortcuts from '../components/KeyboardShortcuts'
 import { saveEPRFRecord, createEPRFRecord, getEPRFRecord } from '../utils/eprfHistoryService'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
 import { checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canEdit, canManageCollaborators } from '../utils/apiClient'
+import ChatStrip from '../components/ChatStrip';
+
 
 export const runtime = 'edge'
 
