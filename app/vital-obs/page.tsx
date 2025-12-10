@@ -210,7 +210,7 @@ export default function VitalObsPage() {
   const [medDrawnUpNotUsed, setMedDrawnUpNotUsed] = useState(false)
   const [medBrokenAmpoule, setMedBrokenAmpoule] = useState(false)
   const [medDiscarded, setMedDiscarded] = useState(false)
-  const [medNotPossible, setMedNotPossible] = useState('')
+  const [medNotPossible, setMedNotPossible] = useState(false)
   const [medNotPossibleReason, setMedNotPossibleReason] = useState('')
   const [medSearchQuery, setMedSearchQuery] = useState('')
   const [medValidationErrors, setMedValidationErrors] = useState<{[key: string]: boolean}>({})
