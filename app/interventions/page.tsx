@@ -206,8 +206,8 @@ export default function InterventionsPage() {
         const access = await checkEPRFAccess(incidentId, patientLetter)
         setUserPermission(access.permission || 'view')
 
-        const transferPermission = await checkCanTransferPatient(incidentId, patientLetter)
-        setCanTransfer(transferPermission.canTransfer)
+        const transferPermission = await checkCanTransferPatient(incidentId, patientLetter, user?.discordId || '')
+        setCanTransfer(transferPermission.canTransfer || false)
       } catch (error) {
         console.error('Failed to check permissions:', error)
       }
