@@ -1089,19 +1089,20 @@ export default function VitalObsPage() {
   }
 
   const handleCompetencyCancel = () => {
-  setShowCompetencyModal(false)
-  // Return to last section
-  if (lastSection === 'vital-obs') {
-    setShowNewVitals(true)
-  } else if (lastSection === 'medications') {
-    setShowMedEntryModal(true)
-  } else if (lastSection === 'interventions') {
-    setShowInterventionEntryModal(true)
-  } else {
-    // Default: stay on vitals
-    setShowNewVitals(false)
+    setShowCompetencyModal(false)
+    // Return to last section
+    if (lastSection === 'vital-obs') {
+      setShowNewVitals(true)
+    } else if (lastSection === 'medications') {
+      setShowMedEntryModal(true)
+    } else if (lastSection === 'interventions') {
+      setShowInterventionEntryModal(true)
+    } else {
+      // Default: stay on vitals
+      setShowNewVitals(false)
+    }
   }
-}
+
   
   const handleIntSaveAndEnterAnother = () => {
     if (saveIntervention()) {
@@ -2089,7 +2090,17 @@ export default function VitalObsPage() {
         </main>
       </div>
 
-      {!showNewVitals ? (
+      {showNewVitals ? (
+        <div className="eprf-footer vitals-footer">
+          <div className="footer-left"></div>
+          <div className="footer-center"></div>
+          <div className="footer-right">
+            <button className="footer-btn gray" onClick={handleCancelAndDiscard}>Cancel and discard changes</button>
+            <button className="footer-btn blue" onClick={handleSaveAndEnterAnother}>Save and enter another set of observations</button>
+            <button className="footer-btn blue" onClick={handleSaveAndReturn}>Save and return to Vital Obs/Treat</button>
+          </div>
+        </div>
+      ) : (
         <div className="eprf-footer vitals-footer">
           <div className="footer-left">
             <button className="footer-btn green" onClick={handleAddPatientClick}>Add Patient</button>
@@ -2103,27 +2114,13 @@ export default function VitalObsPage() {
             </button>
             <button className="footer-btn green" onClick={handleSubmitEPRF}>Submit ePRF</button>
           </div>
-          <div className="footer-center">
-                  width: 12,
-                  height: 12,
-                  background: 'red',
-                  borderRadius: '50%',
-                  display: 'inline-block',
-                  border: '2px solid white',
-                  zIndex: 2
-                }}></span>
-              )}
-            </button>
-          </div>
+          <div className="footer-center"></div>
           <div className="footer-right">
-            <button className="footer-btn gray" onClick={handleCancelAndDiscard}>Cancel and discard changes</button>
-            <button className="footer-btn blue" onClick={handleSaveAndEnterAnother}>Save and enter another set of observations</button>
-            <button className="footer-btn blue" onClick={handleSaveAndReturn}>Save and return to Vital Obs/Treat</button>
+            <button className="footer-btn gray" onClick={handlePrevious}>Previous</button>
+            <button className="footer-btn blue" onClick={handleNext}>Next</button>
           </div>
-          {/* Chat handled by ChatWidget at the bottom. Removed duplicate ChatStrip and collaborators prop. */}
         </div>
       )}
-
       {showDateTimePicker && (
         <div className="modal-overlay" onClick={() => setShowDateTimePicker(false)}>
           <div className="datetime-picker" onClick={(e) => e.stopPropagation()}>
