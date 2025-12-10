@@ -85,8 +85,9 @@ export default function InterventionsPage() {
   // ============ HOOKS AND STATE (MUST BE FIRST) ============
   const searchParams = useSearchParams()
   const router = useRouter()
-  const incidentId = searchParams.get('id') || ''
-  const fleetId = searchParams.get('fleetId') || ''
+  const incidentId = searchParams?.get('id') || ''
+  const fleetId = searchParams?.get('fleetId') || ''
+
 
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [patientLetter, setPatientLetter] = useState('A')
