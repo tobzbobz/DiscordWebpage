@@ -14,8 +14,6 @@ import { getCurrentUser, clearCurrentUser } from '../utils/userService'
 import ChatWidget from '../components/ChatWidget'
 import ChatStrip from '../components/ChatStrip';
 import { checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
-import ChatStrip from '../components/ChatStrip';
-
 export const runtime = 'edge'
 
 // NumericInput component with +/- arrows and keyboard support
