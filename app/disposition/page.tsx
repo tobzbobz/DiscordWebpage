@@ -12,7 +12,8 @@ import ConnectionStatus from '../components/ConnectionStatus'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
 import ChatWidget from '../components/ChatWidget'
-import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
+import ChatStrip from '../components/ChatStrip';
+import { checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
@@ -140,12 +141,7 @@ export default function DispositionPage() {
     router.push(`/dashboard?${params}`)
   }
 
-  const handleAdminPanel = () => {
-    const user = getCurrentUser()
-    if (user && isAdmin(user.discordId)) {
-      router.push('/admin')
-    }
-  }
+  // Admin Panel removed from disposition page
 
   const handleTransferClick = () => {
     setShowTransferModal(true)
@@ -292,6 +288,9 @@ const confirmSubmitEPRF = async () => {
       <style jsx>{`
         .disposition-section {
           padding: 20px;
+          border: 2.5px solid #7a9cc0;
+          border-radius: 6px;
+          background: #f8fafc;
         }
 
         .disposition-title {
@@ -491,6 +490,9 @@ const confirmSubmitEPRF = async () => {
         /* Page 2 styles */
         .page2-section {
           padding: 20px;
+          border: 2.5px solid #7a9cc0;
+          border-radius: 6px;
+          background: #f8fafc;
         }
 
         .non-transport-section {
@@ -737,7 +739,7 @@ const confirmSubmitEPRF = async () => {
         {canManageCollaborators(userPermission) && (
           <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
         )}
-        <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
+        {/* Admin Panel button removed from disposition page */}
         <button className="nav-btn" onClick={handleLogout}>Logout</button>
         {incidentId && patientLetter && (
           <PresenceIndicator 
@@ -1152,15 +1154,17 @@ const confirmSubmitEPRF = async () => {
         currentUserPermission={userPermission || 'view'}
       />
       {/* Chat Widget */}
-      {currentUser && (
-        <ChatWidget
+      {currentUser && showChat && (
+        <ChatStrip
           incidentId={incidentId}
           discordId={currentUser.discordId}
           callsign={currentUser.callsign}
           patientLetter={patientLetter}
-          onUnreadChange={setChatUnreadCount}
-          isOpen={showChat}
+          collaborators={collaborators}
         />
+      )}
+      {showChat && (
+        <div className="fixed inset-0 z-40 bg-black/30 cursor-pointer" onClick={() => setShowChat(false)} />
       )}
     </div>
   )

@@ -75,7 +75,11 @@ export default function TransferModal({
 
   const handleTransferClick = () => {
     if (selectedUser) {
-      setShowConfirmation(true)
+      if (canTransfer) {
+        setShowConfirmation(true)
+      } else {
+        alert('Only the incident owner or patient owner can transfer.');
+      }
     }
   }
 
@@ -400,6 +404,8 @@ export default function TransferModal({
               className="transfer-btn transfer-btn-confirm"
               onClick={handleTransferClick}
               disabled={!selectedUser || isLoading}
+              title={!canTransfer ? 'Only the incident owner or patient owner can transfer' : ''}
+              style={!canTransfer ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
             >
               Transfer Patient
             </button>

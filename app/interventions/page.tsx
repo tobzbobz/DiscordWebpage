@@ -1,3 +1,4 @@
+import ChatStrip from '../components/ChatStrip';
 "use client"
 
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -10,8 +11,8 @@ import PatientManagementModal from '../components/PatientManagementModal'
 import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
-import ChatWidget from '../components/ChatWidget'
-import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
+import ChatStrip from '../components/ChatStrip';
+import { checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
@@ -82,142 +83,142 @@ function NumericInput({ value, onChange, className = '', step = 1, min, max, pla
 }
 
 export default function InterventionsPage() {
+      const [savedInterventions, setSavedInterventions] = useState<any[]>([]);
     // ...existing code...
-      // PDF download option state
-      const [pdfOption, setPdfOption] = useState(false)
-    const [showChat, setShowChat] = useState(false);
-    const [chatUnreadCount, setChatUnreadCount] = useState(0);
-    const [currentUser, setCurrentUser] = useState<{ discordId: string; callsign: string } | null>(null);
+    // PDF download option state
+    const [showInterventionViewModal, setShowInterventionViewModal] = useState(false);
+    const [viewingRecord, setViewingRecord] = useState<any>(null);
+      <div className="eprf-dashboard incident-page">
+        <div className="eprf-nav">
+          ...existing code...
+        </div>
 
-    useEffect(() => {
-      const user = getCurrentUser();
-      if (user) {
-        setCurrentUser({ discordId: user.discordId, callsign: user.callsign });
-      }
-    }, []);
-  const searchParams = useSearchParams()
-  const router = useRouter()
-  const incidentId = searchParams?.get('id') || ''
-  const fleetId = searchParams?.get('fleetId') || ''
-  
-  const [incompleteSections, setIncompleteSections] = useState<string[]>([])
-  const [patientLetter, setPatientLetter] = useState('A')
+        <div className="incident-layout">
+          <aside className="sidebar">
+            ...existing code...
+          </aside>
 
-  // Modal states for Add Patient and Submit ePRF
-  const [showAddPatientModal, setShowAddPatientModal] = useState(false)
-  const [showSubmitModal, setShowSubmitModal] = useState(false)
-  const [showTransferModal, setShowTransferModal] = useState(false)
-  const [showPatientManagementModal, setShowPatientManagementModal] = useState(false)
-  const [showCollaboratorsModal, setShowCollaboratorsModal] = useState(false)
-  const [showValidationErrorModal, setShowValidationErrorModal] = useState(false)
-  const [showSuccessModal, setShowSuccessModal] = useState(false)
-  const [eprfValidationErrors, setEprfValidationErrors] = useState<{[section: string]: string[]}>({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [successMessage, setSuccessMessage] = useState({ title: '', message: '' })
-  const [userPermission, setUserPermission] = useState<PermissionLevel | null>(null)
-  const [canTransfer, setCanTransfer] = useState(false)
+          <main className="incident-content">
+            {!showNewIntervention ? (
+              <section className="incident-section">
+                <h2 className="section-title">Intervention(s)</h2>
+                {savedInterventions.length === 0 ? (
+                  <div className="no-record-message">No record found.</div>
+                ) : (
+                  <div style={{ marginTop: '20px' }}>
+                    {savedInterventions.map((intervention, index) => (
+                      <div 
+                        key={index} 
+                        onClick={() => { setViewingRecord(intervention); setShowInterventionViewModal(true); }}
+                        style={{
+                          backgroundColor: '#d8e8f8',
+                          padding: '15px',
+                          marginBottom: '10px',
+                          borderRadius: '4px',
+                          border: '1px solid #a8c5e0',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <span style={{ fontWeight: 'bold', color: '#2c5282' }}>
+                            Time: {intervention.time || 'No time recorded'} | Performed by: {intervention.performedBy || 'Not specified'}
+                          </span>
+                          <span style={{ fontSize: '11px', color: '#718096', fontStyle: 'italic' }}>(click to view full)</span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '14px' }}>
+                          {intervention.airway && <div><strong>Airway:</strong> {intervention.airway}</div>}
+                          {intervention.ventilation && <div><strong>Ventilation:</strong> {intervention.ventilation}</div>}
+                          {intervention.rsi && <div><strong>RSI:</strong> {intervention.rsi}</div>}
+                          {intervention.cpr && <div><strong>CPR:</strong> {intervention.cpr}</div>}
+                          {intervention.defibrillation && <div><strong>Defibrillation:</strong> {intervention.defibrillation}</div>}
+                          {intervention.ivCannulation && <div><strong>IV Cannulation:</strong> {intervention.ivCannulation}</div>}
+                          {intervention.ioAccess && <div><strong>IO Access:</strong> {intervention.ioAccess}</div>}
+                          {intervention.positioning && <div><strong>Positioning:</strong> {intervention.positioning}</div>}
+                          {intervention.splintDressingTag && <div><strong>Splint/Dressing/Tag:</strong> {intervention.splintDressingTag}</div>}
+                          {intervention.tourniquet && <div><strong>Tourniquet:</strong> {intervention.tourniquet}</div>}
+                          {intervention.otherInterventionNotes && <div style={{ gridColumn: '1 / -1' }}><strong>Other Notes:</strong> {intervention.otherInterventionNotes}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Intervention View Modal (read-only, consistent style) */}
+                {showInterventionViewModal && viewingRecord && (
+                  <div className="modal-overlay" onClick={() => { setShowInterventionViewModal(false); setViewingRecord(null); }}>
+                    <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', width: '95%', overflowY: 'auto', maxHeight: '80vh' }}>
+                      <div className="modal-header">Intervention Record</div>
+                      <div className="modal-body">
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                          <div><strong>Time:</strong> {viewingRecord.time || 'Not recorded'}</div>
+                          {viewingRecord.performedBy && <div><strong>Performed By:</strong> {viewingRecord.performedBy}</div>}
+                          {viewingRecord.airway && <div><strong>Airway:</strong> {viewingRecord.airway}</div>}
+                          {viewingRecord.airwayMethod && <div><strong>Airway Method:</strong> {viewingRecord.airwayMethod}</div>}
+                          {viewingRecord.ventilation && <div><strong>Ventilation:</strong> {viewingRecord.ventilation}</div>}
+                          {viewingRecord.peep && <div><strong>PEEP:</strong> {viewingRecord.peep}</div>}
+                          {viewingRecord.cpap && <div><strong>CPAP:</strong> {viewingRecord.cpap}</div>}
+                          {viewingRecord.rsi && <div><strong>RSI:</strong> {viewingRecord.rsi}</div>}
+                          {viewingRecord.cpr && <div><strong>CPR:</strong> {viewingRecord.cpr}</div>}
+                          {viewingRecord.cprCompressions && <div><strong>Compressions:</strong> {viewingRecord.cprCompressions}</div>}
+                          {viewingRecord.cprVentilations && <div><strong>Ventilations:</strong> {viewingRecord.cprVentilations}</div>}
+                          {viewingRecord.cprContinuous && <div><strong>Continuous:</strong> Yes</div>}
+                          {viewingRecord.cprDiscontinued && <div><strong>CPR Discontinued:</strong> {viewingRecord.cprDiscontinued}</div>}
+                          {viewingRecord.defibrillation && <div><strong>Defibrillation:</strong> {viewingRecord.defibrillation}</div>}
+                          {viewingRecord.defibrillationJoules && <div><strong>Defibrillation Joules:</strong> {viewingRecord.defibrillationJoules}</div>}
+                          {viewingRecord.cardioversion && <div><strong>Cardioversion:</strong> {viewingRecord.cardioversion}</div>}
+                          {viewingRecord.pacing && <div><strong>Pacing:</strong> {viewingRecord.pacing}</div>}
+                          {viewingRecord.valsalva && <div><strong>Valsalva:</strong> {viewingRecord.valsalva}</div>}
+                          {viewingRecord.ivCannulation && <div><strong>IV Cannulation:</strong> {viewingRecord.ivCannulation}</div>}
+                          {viewingRecord.ivSite && <div><strong>IV Site:</strong> {viewingRecord.ivSite}</div>}
+                          {viewingRecord.ivAttempts && <div><strong>IV Attempts:</strong> {viewingRecord.ivAttempts}</div>}
+                          {viewingRecord.ivSuccessful && <div><strong>IV Successful:</strong> {viewingRecord.ivSuccessful}</div>}
+                          {viewingRecord.ioAccess && <div><strong>IO Access:</strong> {viewingRecord.ioAccess}</div>}
+                          {viewingRecord.ioSite && <div><strong>IO Site:</strong> {viewingRecord.ioSite}</div>}
+                          {viewingRecord.ioAttempts && <div><strong>IO Attempts:</strong> {viewingRecord.ioAttempts}</div>}
+                          {viewingRecord.ioSuccessful && <div><strong>IO Successful:</strong> {viewingRecord.ioSuccessful}</div>}
+                          {viewingRecord.ioNotes && <div><strong>IO Notes:</strong> {viewingRecord.ioNotes}</div>}
+                          {viewingRecord.chestDecompression && <div><strong>Chest Decompression:</strong> {viewingRecord.chestDecompression}</div>}
+                          {viewingRecord.stomachDecompression && <div><strong>Stomach Decompression:</strong> {viewingRecord.stomachDecompression}</div>}
+                          {viewingRecord.catheterTroubleshooting && <div><strong>Catheter Troubleshooting:</strong> {viewingRecord.catheterTroubleshooting}</div>}
+                          {viewingRecord.nerveBlock && <div><strong>Nerve Block:</strong> {viewingRecord.nerveBlock}</div>}
+                          {viewingRecord.positioning && <div><strong>Positioning:</strong> {viewingRecord.positioning}</div>}
+                          {viewingRecord.positioningPosition && <div><strong>Positioning Position:</strong> {viewingRecord.positioningPosition}</div>}
+                          {viewingRecord.positioningLegsElevated && <div><strong>Legs Elevated:</strong> {viewingRecord.positioningLegsElevated}</div>}
+                          {viewingRecord.positioningOther && <div><strong>Other Positioning:</strong> {viewingRecord.positioningOther}</div>}
+                          {viewingRecord.splintDressingTag && <div><strong>Splint/Dressing/Tag:</strong> {viewingRecord.splintDressingTag}</div>}
+                          {viewingRecord.splintSelection && <div><strong>Splint Selection:</strong> {viewingRecord.splintSelection}</div>}
+                          {viewingRecord.splintOther && <div><strong>Other Splint:</strong> {viewingRecord.splintOther}</div>}
+                          {viewingRecord.nasalTamponade && <div><strong>Nasal Tamponade:</strong> {viewingRecord.nasalTamponade}</div>}
+                          {viewingRecord.tourniquet && <div><strong>Tourniquet:</strong> {viewingRecord.tourniquet}</div>}
+                          {viewingRecord.tourniquetLocation && <div><strong>Tourniquet Location:</strong> {viewingRecord.tourniquetLocation}</div>}
+                          {viewingRecord.tourniquetSuccessful && <div><strong>Tourniquet Successful:</strong> {viewingRecord.tourniquetSuccessful}</div>}
+                          {viewingRecord.limbReduction && <div><strong>Limb Reduction:</strong> {viewingRecord.limbReduction}</div>}
+                          {viewingRecord.epleManoeuvre && <div><strong>Eple Manoeuvre:</strong> {viewingRecord.epleManoeuvre}</div>}
+                        </div>
+                        {viewingRecord.otherInterventionNotes && (
+                          <div style={{ marginTop: '15px' }}>
+                            <strong>Other Intervention/Notes:</strong>
+                            <div style={{ whiteSpace: 'pre-wrap', background: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc', padding: '10px', marginTop: '4px' }}>{viewingRecord.otherInterventionNotes}</div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="modal-actions" style={{ textAlign: 'center', marginTop: '18px' }}>
+                        <button className="modal-btn ok" onClick={() => { setShowInterventionViewModal(false); setViewingRecord(null); }}>Go Back</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </section>
+            ) : (
+              <section className="incident-section">
+                ...existing code...
+              </section>
+            )}
+            {/* ...other modals... */}
+          </main>
+        </div>
+        {/* ...other modals... */}
+      </div>
 
-  // Check user permission for this ePRF
-  useEffect(() => {
-    async function checkPermission() {
-      const user = getCurrentUser()
-      if (incidentId && user) {
-        const access = await checkEPRFAccess(incidentId, user.discordId)
-        setUserPermission(access.permission)
-        
-        // Check if user can transfer the current patient
-        const transferAllowed = await checkCanTransferPatient(incidentId, patientLetter, user.discordId)
-        setCanTransfer(transferAllowed)
-      }
-    }
-    checkPermission()
-  }, [incidentId, patientLetter])
-
-  // Load patient letter on mount
-  useEffect(() => {
-    if (incidentId) {
-      setPatientLetter(getCurrentPatientLetter(incidentId))
-    }
-  }, [incidentId])
-  
-  // Saved interventions array - initialize from localStorage
-  const [savedInterventions, setSavedInterventions] = useState<any[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(`interventions_${incidentId}`)
-      return saved ? JSON.parse(saved) : []
-    }
-    return []
-  })
-  
-  // Persist interventions to localStorage whenever they change
-  useEffect(() => {
-    if (incidentId) {
-      localStorage.setItem(`interventions_${incidentId}`, JSON.stringify(savedInterventions))
-    }
-  }, [savedInterventions, incidentId])
-  
-  // Draft state for persistence
-  const [intDraft, setIntDraft] = useState<any>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(`interventions_draft_${incidentId}`)
-      return saved ? JSON.parse(saved) : null
-    }
-    return null
-  })
-  
-  // Load draft on mount if exists
-  useEffect(() => {
-    if (intDraft && incidentId) {
-      setTime(intDraft.time || '')
-      setPerformedBy(intDraft.performedBy || '')
-      setAirway(intDraft.airway || '')
-      setVentilation(intDraft.ventilation || '')
-      setPeep(intDraft.peep || '')
-      setCpap(intDraft.cpap || '')
-      setRsi(intDraft.rsi || '')
-      setCpr(intDraft.cpr || '')
-      setCprCompressions(intDraft.cprCompressions || '')
-      setCprVentilations(intDraft.cprVentilations || '')
-      setCprContinuous(intDraft.cprContinuous || false)
-      setCprDiscontinued(intDraft.cprDiscontinued || '')
-      setDefibrillation(intDraft.defibrillation || '')
-      setDefibrillationJoules(intDraft.defibrillationJoules || '')
-      setCardioversion(intDraft.cardioversion || '')
-      setPacing(intDraft.pacing || '')
-      setValsalva(intDraft.valsalva || '')
-      setIvCannulation(intDraft.ivCannulation || '')
-      setIvSite(intDraft.ivSite || '')
-      setIvAttempts(intDraft.ivAttempts || '')
-      setIvSuccessful(intDraft.ivSuccessful || '')
-      setIoAccess(intDraft.ioAccess || '')
-      setIoSite(intDraft.ioSite || '')
-      setIoAttempts(intDraft.ioAttempts || '')
-      setIoSuccessful(intDraft.ioSuccessful || '')
-      setIoNotes(intDraft.ioNotes || '')
-      setChestDecompression(intDraft.chestDecompression || '')
-      setStomachDecompression(intDraft.stomachDecompression || '')
-      setCatheterTroubleshooting(intDraft.catheterTroubleshooting || '')
-      setNerveBlock(intDraft.nerveBlock || '')
-      setPositioning(intDraft.positioning || '')
-      setPositioningPosition(intDraft.positioningPosition || '')
-      setPositioningLegsElevated(intDraft.positioningLegsElevated || '')
-      setPositioningOther(intDraft.positioningOther || '')
-      setSplintDressingTag(intDraft.splintDressingTag || '')
-      setSplintSelection(intDraft.splintSelection || '')
-      setSplintOther(intDraft.splintOther || '')
-      setNasalTamponade(intDraft.nasalTamponade || '')
-      setTourniquet(intDraft.tourniquet || '')
-      setTourniquetLocation(intDraft.tourniquetLocation || '')
-      setTourniquetSuccessful(intDraft.tourniquetSuccessful || '')
-      setLimbReduction(intDraft.limbReduction || '')
-      setEpleManoeuvre(intDraft.epleManoeuvre || '')
-      setOtherInterventionNotes(intDraft.otherInterventionNotes || '')
-      setAirwayMethod(intDraft.airwayMethod || '')
-      if (intDraft.showNewIntervention) {
-        setShowNewIntervention(true)
-      }
-    }
-  }, [])
   
   const [showNewIntervention, setShowNewIntervention] = useState(false)
   const [validationErrors, setValidationErrors] = useState<{[key: string]: boolean}>({})
@@ -235,8 +236,6 @@ export default function InterventionsPage() {
   const [showCPRDiscontinuedPicker, setShowCPRDiscontinuedPicker] = useState(false)
   
   // View modal state (read-only view of submitted records)
-  const [showInterventionViewModal, setShowInterventionViewModal] = useState(false)
-  const [viewingRecord, setViewingRecord] = useState<any>(null)
   
   // Intervention state
   const [time, setTime] = useState('')
@@ -345,12 +344,7 @@ export default function InterventionsPage() {
     router.push(`/dashboard?${params}`)
   }
 
-  const handleAdminPanel = () => {
-    const user = getCurrentUser()
-    if (user && isAdmin(user.discordId)) {
-      router.push('/admin')
-    }
-  }
+  // Admin Panel removed from interventions page
 
   const handleTransferClick = () => {
     setShowTransferModal(true)
@@ -676,8 +670,9 @@ export default function InterventionsPage() {
   const handleSaveAndReturn = () => {
     if (saveCurrentIntervention()) {
       clearDraft()
-      const params = new URLSearchParams({ id: incidentId, fleetId })
-      router.push(`/vital-obs?${params}`)
+      resetInterventionForm()
+      setShowNewIntervention(false)
+      // No navigation, just show the updated list
     }
   }
 
@@ -685,6 +680,7 @@ export default function InterventionsPage() {
     if (saveCurrentIntervention()) {
       clearDraft()
       resetInterventionForm()
+      setShowNewIntervention(true)
     }
   }
 
@@ -859,7 +855,7 @@ export default function InterventionsPage() {
         {canManageCollaborators(userPermission) && (
           <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
         )}
-        <button className="nav-btn" onClick={() => router.push('/admin')}>Admin Panel</button>
+        {/* Admin Panel button removed from interventions page */}
         <button className="nav-btn" onClick={() => { clearCurrentUser(); router.replace('/'); }}>Logout</button>
         {incidentId && patientLetter && (
           <PresenceIndicator 
@@ -997,22 +993,22 @@ export default function InterventionsPage() {
                       </select>
                     </div>
                     <div className="intervention-field">
-                      <label className="field-label">PEEP (cmH₂0)</label>
-                      <input 
-                        type="text" 
-                        className="text-input grayed-disabled"
-                        disabled
-                        readOnly
-                      />
+                        <label className="field-label">PEEP (cmH₂O)</label>
+                        <input 
+                          type="text" 
+                          className="text-input grayed-disabled vital-box"
+                          disabled
+                          readOnly
+                        />
                     </div>
                     <div className="intervention-field">
-                      <label className="field-label">CPAP (cmH₂O)</label>
-                      <input 
-                        type="text" 
-                        className="text-input grayed-disabled"
-                        disabled
-                        readOnly
-                      />
+                        <label className="field-label">CPAP (cmH₂O)</label>
+                        <input 
+                          type="text" 
+                          className="text-input grayed-disabled vital-box"
+                          disabled
+                          readOnly
+                        />
                     </div>
                     <div className="intervention-field">
                       <label className="field-label">RSI</label>
@@ -1044,33 +1040,32 @@ export default function InterventionsPage() {
                       />
                     </div>
                     <div className="intervention-field">
-                      <label className="field-label">Defibrillation (Joules)</label>
-                      <input 
-                        type="text" 
-                        value={defibrillation}
-                        className="text-input clickable-input"
-                        readOnly
-                        onClick={handleDefibrillationClick}
-                        style={{ cursor: 'pointer' }}
-                      />
+                        <label className="field-label">Defibrillation <span style={{fontSize:'11px',opacity:0.7}}>(Joules)</span></label>
+                        <input 
+                          type="text" 
+                          value={defibrillation}
+                          className="text-input grayed-disabled vital-box"
+                          disabled
+                          readOnly
+                        />
                     </div>
                     <div className="intervention-field">
-                      <label className="field-label">Cardioversion (Joules)</label>
-                      <input 
-                        type="text" 
-                        className="text-input grayed-disabled"
-                        disabled
-                        readOnly
-                      />
+                        <label className="field-label">Cardioversion <span style={{fontSize:'11px',opacity:0.7}}>(Joules)</span></label>
+                        <input 
+                          type="text" 
+                          className="text-input grayed-disabled vital-box"
+                          disabled
+                          readOnly
+                        />
                     </div>
                     <div className="intervention-field">
-                      <label className="field-label">Pacing</label>
-                      <input 
-                        type="text" 
-                        className="text-input grayed-disabled"
-                        disabled
-                        readOnly
-                      />
+                        <label className="field-label">Pacing</label>
+                        <input 
+                          type="text" 
+                          className="text-input grayed-disabled vital-box"
+                          disabled
+                          readOnly
+                        />
                     </div>
                     <div className="intervention-field">
                       <label className="field-label">Valsalva</label>
@@ -1106,51 +1101,51 @@ export default function InterventionsPage() {
                         value={ioAccess}
                         readOnly
                         onClick={handleIOClick}
-                        className="text-input"
-                        style={{ cursor: 'pointer' }}
+                          className="text-input vital-box"
+                          style={{ cursor: 'pointer' }}
                       />
                     </div>
                     <div className="intervention-field">
-                      <label className="field-label">Chest Decompression</label>
-                      <input 
-                        type="text" 
-                        value={chestDecompression}
-                        disabled
-                        readOnly
-                        className="text-input grayed-disabled"
-                      />
+                        <label className="field-label">Chest Decompression</label>
+                        <input 
+                          type="text" 
+                          value={chestDecompression}
+                          disabled
+                          readOnly
+                          className="text-input grayed-disabled vital-box"
+                        />
                     </div>
                   </div>
                   <div className="intervention-row">
                     <div className="intervention-field">
-                      <label className="field-label">Stomach Decompression</label>
-                      <input 
-                        type="text" 
-                        value={stomachDecompression}
-                        disabled
-                        readOnly
-                        className="text-input grayed-disabled"
-                      />
+                        <label className="field-label">Stomach Decompression</label>
+                        <input 
+                          type="text" 
+                          value={stomachDecompression}
+                          disabled
+                          readOnly
+                          className="text-input grayed-disabled vital-box"
+                        />
                     </div>
                     <div className="intervention-field">
-                      <label className="field-label">Catheter Troubleshooting</label>
-                      <input 
-                        type="text" 
-                        value={catheterTroubleshooting}
-                        disabled
-                        readOnly
-                        className="text-input grayed-disabled"
-                      />
+                        <label className="field-label">Catheter Troubleshooting</label>
+                        <input 
+                          type="text" 
+                          value={catheterTroubleshooting}
+                          disabled
+                          readOnly
+                          className="text-input grayed-disabled vital-box"
+                        />
                     </div>
                     <div className="intervention-field">
-                      <label className="field-label">Nerve Block</label>
-                      <input 
-                        type="text" 
-                        value={nerveBlock}
-                        disabled
-                        readOnly
-                        className="text-input grayed-disabled"
-                      />
+                        <label className="field-label">Nerve Block</label>
+                        <input 
+                          type="text" 
+                          value={nerveBlock}
+                          disabled
+                          readOnly
+                          className="text-input grayed-disabled vital-box"
+                        />
                     </div>
                   </div>
                 </div>
@@ -1166,8 +1161,8 @@ export default function InterventionsPage() {
                         value={positioning}
                         readOnly
                         onClick={handlePositioningClick}
-                        className="text-input"
-                        style={{ cursor: 'pointer' }}
+                          className="text-input vital-box"
+                          style={{ cursor: 'pointer' }}
                       />
                     </div>
                     <div className="intervention-field">
@@ -1177,19 +1172,19 @@ export default function InterventionsPage() {
                         value={splintDressingTag}
                         readOnly
                         onClick={handleSplintClick}
-                        className="text-input"
-                        style={{ cursor: 'pointer' }}
+                          className="text-input vital-box"
+                          style={{ cursor: 'pointer' }}
                       />
                     </div>
                     <div className="intervention-field">
-                      <label className="field-label">Nasal Tamponade</label>
-                      <input 
-                        type="text" 
-                        value={nasalTamponade}
-                        disabled
-                        readOnly
-                        className="text-input grayed-disabled"
-                      />
+                        <label className="field-label">Nasal Tamponade</label>
+                        <input 
+                          type="text" 
+                          value={nasalTamponade}
+                          disabled
+                          readOnly
+                          className="text-input grayed-disabled vital-box"
+                        />
                     </div>
                   </div>
                   <div className="intervention-row" style={{ marginBottom: '10px' }}>
@@ -1200,29 +1195,29 @@ export default function InterventionsPage() {
                         value={tourniquet}
                         readOnly
                         onClick={handleTourniquetClick}
-                        className="text-input"
-                        style={{ cursor: 'pointer' }}
+                          className="text-input vital-box"
+                          style={{ cursor: 'pointer' }}
                       />
                     </div>
                     <div className="intervention-field">
-                      <label className="field-label">Limb Reduction</label>
-                      <input 
-                        type="text" 
-                        value={limbReduction}
-                        disabled
-                        readOnly
-                        className="text-input grayed-disabled"
-                      />
+                        <label className="field-label">Limb Reduction</label>
+                        <input 
+                          type="text" 
+                          value={limbReduction}
+                          disabled
+                          readOnly
+                          className="text-input grayed-disabled vital-box"
+                        />
                     </div>
                     <div className="intervention-field">
-                      <label className="field-label">Eple Manoeuvre</label>
-                      <input 
-                        type="text" 
-                        value={epleManoeuvre}
-                        disabled
-                        readOnly
-                        className="text-input grayed-disabled"
-                      />
+                        <label className="field-label">Epley Manoeuvre</label>
+                        <input 
+                          type="text" 
+                          value={epleManoeuvre}
+                          disabled
+                          readOnly
+                          className="text-input grayed-disabled vital-box"
+                        />
                     </div>
                   </div>
                   <div className="intervention-row">
@@ -1233,8 +1228,8 @@ export default function InterventionsPage() {
                         value={otherInterventionNotes}
                         readOnly
                         onClick={handleOtherNotesClick}
-                        className="text-input"
-                        style={{ cursor: 'pointer' }}
+                          className="text-input vital-box"
+                          style={{ cursor: 'pointer' }}
                       />
                     </div>
                   </div>
@@ -2214,15 +2209,17 @@ export default function InterventionsPage() {
         currentUserPermission={userPermission || 'view'}
       />
       {/* Chat Widget */}
-      {currentUser && (
-        <ChatWidget
+      {currentUser && showChat && (
+        <ChatStrip
           incidentId={incidentId}
           discordId={currentUser.discordId}
           callsign={currentUser.callsign}
           patientLetter={patientLetter}
-          onUnreadChange={setChatUnreadCount}
-          isOpen={showChat}
+          collaborators={collaborators}
         />
+      )}
+      {showChat && (
+        <div className="fixed inset-0 z-40 bg-black/30 cursor-pointer" onClick={() => setShowChat(false)} />
       )}
     </div>
   )

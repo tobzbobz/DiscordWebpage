@@ -1,3 +1,4 @@
+import ChatStrip from '../components/ChatStrip';
 "use client"
 
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -10,8 +11,7 @@ import PatientManagementModal from '../components/PatientManagementModal'
 import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
-import ChatWidget from '../components/ChatWidget'
-import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
+import { checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
@@ -315,12 +315,7 @@ export default function MedicationsPage() {
     router.push(`/dashboard?${params}`)
   }
 
-  const handleAdminPanel = () => {
-    const user = getCurrentUser()
-    if (user && isAdmin(user.discordId)) {
-      router.push('/admin')
-    }
-  }
+  // Admin Panel removed from medications page
 
   const handleTransferClick = () => {
     setShowTransferModal(true)
@@ -694,7 +689,7 @@ export default function MedicationsPage() {
             }}></span>
           )}
         </button>
-        <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
+        {/* Admin Panel button removed from medications page */}
         <button className="nav-btn" onClick={handleLogout}>Logout</button>
         <button className="nav-btn" onClick={handleLogout}>Logout</button>
         {incidentId && patientLetter && (
@@ -809,8 +804,8 @@ export default function MedicationsPage() {
                           setShowMedicationDropdown(false)
                         }}
                         onClick={() => setShowMedicationDropdown(false)}
-                        className={`text-input ${validationErrors.medication ? 'validation-error' : ''}`}
-                        style={{ flex: 1 }}
+                          className={`text-input vital-box ${validationErrors.medication ? 'validation-error' : ''}`}
+                          style={{ flex: 1 }}
                       />
                       <button className="search-btn" onClick={handleSearchClick}>Search</button>
                       <button className="search-btn" onClick={handleListClick}>List</button>
@@ -877,7 +872,7 @@ export default function MedicationsPage() {
                       type="text" 
                       value={unit}
                       onChange={(e) => setUnit(e.target.value)}
-                      className={`text-input ${validationErrors.unit ? 'validation-error' : ''}`}
+                        className={`text-input vital-box ${validationErrors.unit ? 'validation-error' : ''}`}
                     />
                   </div>
 
@@ -889,7 +884,7 @@ export default function MedicationsPage() {
                       className={`text-input clickable-input ${validationErrors.route ? 'validation-error' : ''}`}
                       readOnly
                       onClick={handleRouteClick}
-                      style={{ cursor: 'pointer' }}
+                        style={{ cursor: 'pointer' }}
                     />
                   </div>
                 </div>
@@ -900,7 +895,7 @@ export default function MedicationsPage() {
                     <input 
                       type="text" 
                       value={notes}
-                      className="text-input clickable-input"
+                        className="text-input vital-box clickable-input"
                       readOnly
                       onClick={handleNotesClick}
                       style={{ cursor: 'pointer' }}
@@ -962,7 +957,7 @@ export default function MedicationsPage() {
                     <input 
                       type="text" 
                       value={notPossibleReason}
-                      className="text-input clickable-input"
+                        className="text-input vital-box clickable-input"
                       readOnly
                       onClick={handleNotPossibleClick}
                       style={{ cursor: 'pointer' }}
@@ -1254,25 +1249,18 @@ export default function MedicationsPage() {
           <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px', width: '95%', overflowY: 'auto', maxHeight: '80vh' }}>
             <div className="modal-header">Medication Record</div>
             <div className="modal-body">
-              {(() => {
-                try {
-                  return (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                      <div><strong>Time:</strong> {viewingRecord.time || 'Not recorded'}</div>
-                      {viewingRecord.medication && <div><strong>Medication:</strong> {viewingRecord.medication}</div>}
-                      {viewingRecord.dose && <div><strong>Dose:</strong> {viewingRecord.dose} {viewingRecord.unit || ''}</div>}
-                      {viewingRecord.route && <div><strong>Route:</strong> {viewingRecord.route}</div>}
-                      {viewingRecord.administeredBy && <div><strong>Administered By:</strong> {viewingRecord.administeredBy}</div>}
-                      {viewingRecord.notPossible && <div><strong>Not Possible:</strong> {viewingRecord.notPossible}</div>}
-                      {viewingRecord.drawnUpNotUsed && <div><strong>Drawn Up Not Used:</strong> Yes</div>}
-                      {viewingRecord.brokenAmpoule && <div><strong>Broken Ampoule:</strong> Yes</div>}
-                      {viewingRecord.discarded && <div><strong>Discarded:</strong> Yes</div>}
-                    </div>
-                  )
-                } catch (err) {
-                  return <div style={{ color: 'red', fontWeight: 'bold' }}>Error loading record.</div>
-                }
-              })()}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div><strong>Time:</strong> {viewingRecord.time || 'Not recorded'}</div>
+                {viewingRecord.medication && <div><strong>Medication:</strong> {viewingRecord.medication}</div>}
+                {viewingRecord.dose && <div><strong>Dose:</strong> {viewingRecord.dose} {viewingRecord.unit || ''}</div>}
+                {viewingRecord.route && <div><strong>Route:</strong> {viewingRecord.route}</div>}
+                {viewingRecord.administeredBy && <div><strong>Administered By:</strong> {viewingRecord.administeredBy}</div>}
+                {viewingRecord.notPossible && <div><strong>Not Possible:</strong> {viewingRecord.notPossible}</div>}
+                {viewingRecord.notPossibleReason && <div><strong>Reason:</strong> {viewingRecord.notPossibleReason}</div>}
+                {viewingRecord.drawnUpNotUsed && <div><strong>Drawn Up Not Used:</strong> Yes</div>}
+                {viewingRecord.brokenAmpoule && <div><strong>Broken Ampoule:</strong> Yes</div>}
+                {viewingRecord.discarded && <div><strong>Discarded:</strong> Yes</div>}
+              </div>
               {viewingRecord.notes && (
                 <div style={{ marginTop: '15px' }}>
                   <strong>Notes:</strong>

@@ -795,6 +795,15 @@ main {
   font-size: 15px;
 }
 
+.vital-box {
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 8px 12px;
+  min-width: 80px;
+  text-align: center;
+}
+
 .input-with-btn {
   display: flex;
   gap: 4px;

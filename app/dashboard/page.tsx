@@ -21,6 +21,7 @@ import SearchModal from '../components/SearchModal'
 import QuickActionsFAB from '../components/QuickActionsFAB'
 import KeyboardShortcuts from '../components/KeyboardShortcuts'
 import { isAdmin, getSharedEPRFs, SharedEPRFRecord, PermissionLevel } from '../utils/apiClient'
+import ChatStrip from '../components/ChatStrip';
 
 export const runtime = 'edge'
 
@@ -171,6 +172,10 @@ export default function DashboardPage() {
     sortBy: 'date-desc'
   })
 
+  // History modal states
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyTarget, setHistoryTarget] = useState<EPRFRecord | null>(null);
+
   const toggleIncidentSelection = (incidentId: string) => {
     setSelectedIncidents(prev => {
       const newSet = new Set(prev)
@@ -211,12 +216,16 @@ export default function DashboardPage() {
         filteredRecords = filteredRecords.filter(r => new Date(r.createdAt).getTime() <= toDate)
       }
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase()
-        filteredRecords = filteredRecords.filter(r => 
-          r.incidentId.toLowerCase().includes(q) ||
-          r.patientLetter.toLowerCase().includes(q) ||
-          r.authorCallsign.toLowerCase().includes(q)
-        )
+        const q = searchQuery.toLowerCase();
+        filteredRecords = filteredRecords.filter(r => {
+          const patientName = getPatientName(r.incidentId, r.patientLetter).toLowerCase();
+          return (
+            r.incidentId.toLowerCase().includes(q) ||
+            r.patientLetter.toLowerCase().includes(q) ||
+            r.authorCallsign.toLowerCase().includes(q) ||
+            patientName.includes(q)
+          );
+        });
       }
       
       const groups = groupEPRFsByIncident(filteredRecords)
@@ -242,12 +251,16 @@ export default function DashboardPage() {
         filteredSharedRecords = filteredSharedRecords.filter(r => new Date(r.created_at).getTime() <= toDate)
       }
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase()
-        filteredSharedRecords = filteredSharedRecords.filter(r => 
-          r.incident_id.toLowerCase().includes(q) ||
-          r.patient_letter.toLowerCase().includes(q) ||
-          r.author_callsign.toLowerCase().includes(q)
-        )
+        const q = searchQuery.toLowerCase();
+        filteredSharedRecords = filteredSharedRecords.filter(r => {
+          const patientName = getPatientName(r.incident_id, r.patient_letter).toLowerCase();
+          return (
+            r.incident_id.toLowerCase().includes(q) ||
+            r.patient_letter.toLowerCase().includes(q) ||
+            r.author_callsign.toLowerCase().includes(q) ||
+            patientName.includes(q)
+          );
+        });
       }
       
       const sharedGrouped = groupSharedEPRFs(filteredSharedRecords)
@@ -260,9 +273,20 @@ export default function DashboardPage() {
         dateTo: dateTo || undefined
       }
       const records = searchEPRFs(discordId, searchQuery, filters)
-      const groups = groupEPRFsByIncident(records)
-      setEprfGroups(groups)
-      setSharedGroups([])
+      // Fallback: also filter by patient name
+      const q = searchQuery.toLowerCase();
+      const filteredRecords = records.filter(r => {
+        const patientName = getPatientName(r.incidentId, r.patientLetter).toLowerCase();
+        return (
+          r.incidentId.toLowerCase().includes(q) ||
+          r.patientLetter.toLowerCase().includes(q) ||
+          r.authorCallsign.toLowerCase().includes(q) ||
+          patientName.includes(q)
+        );
+      });
+      const groups = groupEPRFsByIncident(filteredRecords);
+      setEprfGroups(groups);
+      setSharedGroups([]);
     } finally {
       setIsLoading(false)
     }
@@ -420,6 +444,12 @@ export default function DashboardPage() {
   const incompleteGroups = eprfGroups.filter(g => !g.allComplete)
   const completeGroups = eprfGroups.filter(g => g.allComplete)
 
+  const handleHistoryClick = (record: EPRFRecord) => {
+    setHistoryTarget(record);
+    setShowHistoryModal(true);
+  }
+
+  const [showChatStrip, setShowChatStrip] = useState(false);
   return (
     <div className="eprf-dashboard">
       <style jsx>{`
@@ -1021,10 +1051,10 @@ export default function DashboardPage() {
           <button className="nav-btn" onClick={() => router.push('/admin')}>Admin Panel</button>
         )}
         <button className="nav-btn" onClick={handleLogout}>Logout</button>
-        <div className="page-counter">
+        <div className="page-counter" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
           {currentUser && <NotificationCenter discordId={currentUser.discordId} callsign={currentUser.callsign} />}
-          <span className="patient-letter">{currentUser?.callsign || fleetId}</span>
-          <span className="page-indicator">Dashboard</span>
+          <span className="patient-letter" style={{ fontSize: 18, fontWeight: 'bold', color: '#1a3a5c', background: '#e8f0f8', borderRadius: 8, padding: '2px 12px', marginBottom: 2 }}>HAM-1</span>
+          <span className="page-indicator" style={{ fontSize: 16, fontWeight: 'bold', color: '#1a3a5c', background: '#b0ceeb', borderRadius: 8, padding: '2px 12px' }}>Dashboard</span>
         </div>
       </div>
 
@@ -1265,17 +1295,38 @@ export default function DashboardPage() {
                     <div className="patient-list">
                       {group.patients.map(patient => {
                         const patientName = getPatientName(patient.incidentId, patient.patientLetter)
+                        const isOwner = currentUser && patient.author === currentUser.discordId
                         return (
-                          <div key={patient.patientLetter} className="patient-item">
-                            <div className="patient-info">
+                          <div key={patient.patientLetter} className="patient-item" style={{ display: 'flex', alignItems: 'center' }}>
+                            {group.patients.length > 1 && isOwner && (
+                              <>
+                                <button className="eprf-action-btn btn-edit" onClick={() => handleEdit(patient)}>
+                                  Edit
+                                </button>
+                                <button className="eprf-action-btn btn-delete" onClick={() => handleDeleteClick(patient)}>
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                            <div className="patient-info" style={{ marginLeft: group.patients.length > 1 && isOwner ? 8 : 0 }}>
                               <span className="patient-badge">{patient.patientLetter}</span>
                               <span className="patient-label">
                                 {patientName || `Patient ${patient.patientLetter}`}
                               </span>
                             </div>
-                            <span className={`patient-status-tag ${patient.status}`}>
+                            <span className={`patient-status-tag ${patient.status}`} style={{ marginLeft: 8 }}>
                               {patient.status === 'complete' ? '✓ Complete' : 'Incomplete'}
                             </span>
+                            {group.patients.length === 1 && isOwner && (
+                              <>
+                                <button className="eprf-action-btn btn-edit" onClick={() => handleEdit(patient)}>
+                                  Edit
+                                </button>
+                                <button className="eprf-action-btn btn-delete" onClick={() => handleDeleteClick(patient)}>
+                                  Delete
+                                </button>
+                              </>
+                            )}
                           </div>
                         )
                       })}
@@ -1628,6 +1679,50 @@ export default function DashboardPage() {
           { key: '?', action: () => {}, description: 'Show Help', category: 'General' }
         ]}
       />
+
+      {/* History Modal */}
+      {showHistoryModal && historyTarget && (
+        <ConfirmationModal
+          isOpen={showHistoryModal}
+          onClose={() => setShowHistoryModal(false)}
+          title={`History for Patient ${historyTarget.patientLetter}`}
+          message={`Show history details for incident ${historyTarget.incidentId}, patient ${historyTarget.patientLetter}.`}
+          confirmText="Close"
+          onConfirm={() => setShowHistoryModal(false)}
+          type="info"
+        />
+      )}
+      {/* Floating Chat Button (left side) */}
+      {!showChatStrip && currentUser && (
+        <button
+          className="fixed top-1/2 left-4 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg transition-all"
+          style={{ transform: 'translateY(-50%)' }}
+          onClick={() => setShowChatStrip(true)}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </button>
+      )}
+
+      {/* ChatStrip (left-side chat panel) */}
+      {showChatStrip && currentUser && (
+        <ChatStrip
+          discordId={currentUser.discordId}
+          callsign={currentUser.callsign}
+          incidentId={''}
+          patientLetter={''}
+          collaborators={[]}
+        />
+      )}
+
+      {/* Overlay to close ChatStrip */}
+      {showChatStrip && (
+        <div
+          className="fixed inset-0 z-40 bg-black/30 cursor-pointer"
+          onClick={() => setShowChatStrip(false)}
+        />
+      )}
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import ChatStrip from '../components/ChatStrip';
 "use client"
 
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -11,8 +12,8 @@ import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
 import ConnectionStatus from '../components/ConnectionStatus'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
-import ChatWidget from '../components/ChatWidget'
-import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
+import ChatStrip from '../components/ChatStrip';
+import { checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
@@ -645,12 +646,7 @@ export default function ClinicalImpressionPage() {
     router.push(`/dashboard?${params}`)
   }
 
-  const handleAdminPanel = () => {
-    const user = getCurrentUser()
-    if (user && isAdmin(user.discordId)) {
-      router.push('/admin')
-    }
-  }
+  // Admin Panel removed from clinical-impression page
 
   const handleTransferClick = () => {
     setShowTransferModal(true)
@@ -840,6 +836,10 @@ export default function ClinicalImpressionPage() {
             position: relative;
             display: flex;
             align-items: flex-start;
+            border: 2.5px solid #7a9cc0;
+            border-radius: 6px;
+            background: #f8fafc;
+            padding: 18px 16px;
           }
         }
         
@@ -1062,7 +1062,7 @@ export default function ClinicalImpressionPage() {
         {canManageCollaborators(userPermission) && (
           <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
         )}
-        <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
+        {/* Admin Panel button removed from clinical-impression page */}
         <button className="nav-btn" onClick={handleLogout}>Logout</button>
         {incidentId && patientLetter && (
           <PresenceIndicator 
@@ -1188,7 +1188,7 @@ export default function ClinicalImpressionPage() {
       <div className="eprf-footer incident-footer">
         <ConnectionStatus />
         <div className="footer-left">
-          <button className="footer-btn discovery" onClick={handleAddPatientClick}>Add Patient</button>
+          <button className="footer-btn green" onClick={handleAddPatientClick}>Add Patient</button>
           <button 
             className={`footer-btn green ${!canTransfer ? 'disabled' : ''}`} 
             onClick={handleTransferClick}
@@ -1235,6 +1235,16 @@ export default function ClinicalImpressionPage() {
             </div>
             <div className="modal-footer">
               <button className="cancel-btn" onClick={() => setShowListModal(false)}>Cancel</button>
+              <button className="ok-btn" onClick={() => setShowListModal(false)} style={{
+                padding: '10px 30px',
+                background: 'linear-gradient(to bottom, #5a7a9c, #4a6a8c)',
+                color: 'white',
+                border: '1px solid #3a5a7c',
+                borderRadius: '3px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                marginLeft: '10px'
+              }}>OK</button>
             </div>
           </div>
         </div>
@@ -1318,15 +1328,17 @@ export default function ClinicalImpressionPage() {
         currentUserPermission={userPermission || 'view'}
       />
       {/* Chat Widget */}
-      {currentUser && (
-        <ChatWidget
+      {currentUser && showChat && (
+        <ChatStrip
           incidentId={incidentId}
           discordId={currentUser.discordId}
           callsign={currentUser.callsign}
           patientLetter={patientLetter}
-          onUnreadChange={setChatUnreadCount}
-          isOpen={showChat}
+          collaborators={collaborators}
         />
+      )}
+      {showChat && (
+        <div className="fixed inset-0 z-40 bg-black/30 cursor-pointer" onClick={() => setShowChat(false)} />
       )}
     </div>
   )

@@ -1,3 +1,4 @@
+import ChatStrip from '../components/ChatStrip';
 "use client"
 
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -11,8 +12,8 @@ import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
 import ConnectionStatus from '../components/ConnectionStatus'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
-import ChatWidget from '../components/ChatWidget'
-import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
+import ChatStrip from '../components/ChatStrip';
+import { checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
@@ -533,7 +534,7 @@ export default function MediaPage() {
         {canManageCollaborators(userPermission) && (
           <button className="nav-btn" onClick={() => setShowCollaboratorsModal(true)}>Manage Collaborators</button>
         )}
-        <button className="nav-btn" onClick={() => router.push('/admin')}>Admin Panel</button>
+        {/* Admin Panel button removed from media page */}
         <button className="nav-btn" onClick={() => { clearCurrentUser(); router.replace('/'); }}>Logout</button>
         {incidentId && patientLetter && (
           <PresenceIndicator 
@@ -760,15 +761,17 @@ export default function MediaPage() {
         currentUserPermission={userPermission || 'view'}
       />
       {/* Chat Widget */}
-      {currentUser && (
-        <ChatWidget
+      {currentUser && showChat && (
+        <ChatStrip
           incidentId={incidentId}
           discordId={currentUser.discordId}
           callsign={currentUser.callsign}
           patientLetter={patientLetter}
-          onUnreadChange={setChatUnreadCount}
-          isOpen={showChat}
+          collaborators={collaborators}
         />
+      )}
+      {showChat && (
+        <div className="fixed inset-0 z-40 bg-black/30 cursor-pointer" onClick={() => setShowChat(false)} />
       )}
     </div>
   );

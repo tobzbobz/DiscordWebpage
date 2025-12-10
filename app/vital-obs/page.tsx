@@ -12,7 +12,8 @@ import ConnectionStatus from '../components/ConnectionStatus'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
 import ChatWidget from '../components/ChatWidget'
-import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
+import ChatStrip from '../components/ChatStrip';
+import { checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
@@ -173,6 +174,8 @@ export default function VitalObsPage() {
   
   // Competency tool modal state
   const [showCompetencyModal, setShowCompetencyModal] = useState(false)
+  // Track last section before opening Competency Tool
+  const [lastSection, setLastSection] = useState<string | null>(null)
   const [pdfOption, setPdfOption] = useState(true)
   const [competencyTime, setCompetencyTime] = useState('')
   const [competencyUnderstandInfo, setCompetencyUnderstandInfo] = useState<'yes' | 'no' | ''>('')
@@ -597,16 +600,12 @@ export default function VitalObsPage() {
   }
 
   const handleHome = () => {
+    setIncompleteSections([])
     const params = new URLSearchParams({ fleetId })
     router.push(`/dashboard?${params}`)
   }
 
-  const handleAdminPanel = () => {
-    const user = getCurrentUser()
-    if (user && isAdmin(user.discordId)) {
-      router.push('/admin')
-    }
-  }
+  // Admin Panel removed from vital-obs page
 
   const handleTransferClick = () => {
     setShowTransferModal(true)
@@ -694,6 +693,10 @@ export default function VitalObsPage() {
       saveDraft()
     }
     const params = new URLSearchParams({ id: incidentId, fleetId })
+    // Only clear validation errors if navigating to home, dashboard, or admin
+    if (section === 'home' || section === 'dashboard' || section === 'admin') {
+      setIncompleteSections([])
+    }
     if (section === 'incident') router.push(`/incident?${params}`)
     else if (section === 'patient-info') router.push(`/patient-info?${params}`)
     else if (section === 'primary-survey') router.push(`/primary-survey?${params}`)
@@ -1869,7 +1872,29 @@ export default function VitalObsPage() {
                 <button className="vitals-action-btn blue" onClick={handleNewVitals}>New Vitals</button>
                 <button className="vitals-action-btn blue" onClick={handleNewMeds}>New Meds</button>
                 <button className="vitals-action-btn blue" onClick={handleNewIntervention}>New Intervention</button>
-                <button className="vitals-action-btn blue" onClick={() => setShowCompetencyModal(true)}>Competency Tool</button>
+                <button className="vitals-action-btn blue" onClick={() => {
+                  // Track last section before opening Competency Tool
+                  if (showNewVitals) setLastSection('vital-obs')
+                  else if (showMedEntryModal || showMedSearchModal) setLastSection('medications')
+                  else if (showInterventionEntryModal) setLastSection('interventions')
+                  else setLastSection('vital-obs')
+                  setShowCompetencyModal(true)
+                }}>Competency Tool</button>
+                // Competency Tool cancel logic
+                const handleCompetencyCancel = () => {
+                  setShowCompetencyModal(false)
+                  // Return to last section
+                  if (lastSection === 'vital-obs') {
+                    setShowNewVitals(true)
+                  } else if (lastSection === 'medications') {
+                    setShowMedEntryModal(true)
+                  } else if (lastSection === 'interventions') {
+                    setShowInterventionEntryModal(true)
+                  } else {
+                    // Default: stay on vitals
+                    setShowNewVitals(false)
+                  }
+                }
               </div>
             </section>
           ) : (
@@ -1960,35 +1985,38 @@ export default function VitalObsPage() {
 
                 <div className="vital-field">
                   <label className="field-label">Blood Glucose (mmol/L)</label>
-                  <input 
-                    type="text" 
-                    value={bloodGlucose}
-                    className="text-input clickable-input"
-                    readOnly
-                    onClick={openBGLModal}
-                  />
+                    <input 
+                      type="text" 
+                      value={bloodGlucose}
+                      className="text-input vital-box"
+                      style={{ backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '6px', boxShadow: 'none', padding: '8px 12px', minWidth: '80px', textAlign: 'center' }}
+                      readOnly
+                      onClick={openBGLModal}
+                    />
                 </div>
 
                 <div className="vital-field">
                   <label className="field-label">Cap Refill (sec)</label>
-                  <input 
-                    type="text" 
-                    value={capRefill}
-                    className="text-input clickable-input"
-                    readOnly
-                    onClick={openBGLModal}
-                  />
+                    <input 
+                      type="text" 
+                      value={capRefill}
+                      className="text-input vital-box"
+                      style={{ backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '6px', boxShadow: 'none', padding: '8px 12px', minWidth: '80px', textAlign: 'center' }}
+                      readOnly
+                      onClick={openBGLModal}
+                    />
                 </div>
 
                 <div className="vital-field">
                   <label className="field-label">Temperature (°C)</label>
-                  <input 
-                    type="text" 
-                    value={temperature}
-                    className="text-input clickable-input"
-                    readOnly
-                    onClick={openBGLModal}
-                  />
+                    <input 
+                      type="text" 
+                      value={temperature}
+                      className="text-input vital-box"
+                      style={{ backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '6px', boxShadow: 'none', padding: '8px 12px', minWidth: '80px', textAlign: 'center' }}
+                      readOnly
+                      onClick={openBGLModal}
+                    />
                 </div>
 
                 <div className="vital-field">
@@ -2065,7 +2093,7 @@ export default function VitalObsPage() {
       {!showNewVitals ? (
         <div className="eprf-footer vitals-footer">
           <div className="footer-left">
-            <button className="footer-btn orange" onClick={handleAddPatientClick}>Add Patient</button>
+            <button className="footer-btn green" onClick={handleAddPatientClick}>Add Patient</button>
             <button 
               className={`footer-btn green ${!canTransfer ? 'disabled' : ''}`} 
               onClick={handleTransferClick}
@@ -2077,23 +2105,6 @@ export default function VitalObsPage() {
             <button className="footer-btn green" onClick={handleSubmitEPRF}>Submit ePRF</button>
           </div>
           <div className="footer-center">
-          </div>
-          <div className="footer-right">
-            <button className="footer-btn orange" onClick={handlePrevious}>{"< Previous"}</button>
-            <button className="footer-btn orange" onClick={handleNext}>{"Next >"}</button>
-          </div>
-        </div>
-      ) : (
-        <div className="eprf-footer vitals-edit-footer">
-          <ConnectionStatus />
-          <div className="footer-left">
-            <button className="footer-btn chat-btn" onClick={() => setShowChat(!showChat)} title="Chat" style={{ position: 'relative' }}>
-              Chat
-              {chatUnreadCount > 0 && (
-                <span style={{
-                  position: 'absolute',
-                  top: 2,
-                  left: 2,
                   width: 12,
                   height: 12,
                   background: 'red',
@@ -2111,15 +2122,17 @@ export default function VitalObsPage() {
             <button className="footer-btn blue" onClick={handleSaveAndReturn}>Save and return to Vital Obs/Treat</button>
           </div>
           {/* Chat Widget for new vitals/meds/interventions views */}
-          {currentUser && (
-            <ChatWidget
+          {currentUser && showChat && (
+            <ChatStrip
               incidentId={incidentId}
               discordId={currentUser.discordId}
               callsign={currentUser.callsign}
               patientLetter={patientLetter}
-              onUnreadChange={setChatUnreadCount}
-              isOpen={showChat}
+              collaborators={collaborators}
             />
+          )}
+          {showChat && (
+            <div className="fixed inset-0 z-40 bg-black/30 cursor-pointer" onClick={() => setShowChat(false)} />
           )}
         </div>
       )}
@@ -3636,12 +3649,12 @@ export default function VitalObsPage() {
                 <label className="vital-modal-label">Not possible</label>
                 <input 
                   type="text" 
-                  className="vital-modal-input"
+                  className="vital-modal-input vital-box"
                   value={painScoreNotPossibleReason}
                   readOnly
                   onClick={handlePainScoreNotPossibleClick}
                   placeholder="Select reason"
-                  style={{ cursor: 'pointer' }}
+                  style={{ backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '6px', boxShadow: 'none', padding: '8px 12px', minWidth: '80px', textAlign: 'center', cursor: 'pointer' }}
                 />
               </div>
             </div>
@@ -4031,12 +4044,12 @@ export default function VitalObsPage() {
                 <label className="vital-modal-label">Not possible</label>
                 <input 
                   type="text" 
-                  className="vital-modal-input"
+                  className="vital-modal-input vital-box"
                   value={skinNotPossibleReason}
                   readOnly
                   onClick={handleSkinNotPossibleClick}
                   placeholder="Select reason"
-                  style={{ cursor: 'pointer' }}
+                  style={{ backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '6px', boxShadow: 'none', padding: '8px 12px', minWidth: '80px', textAlign: 'center', cursor: 'pointer' }}
                 />
               </div>
             </div>
@@ -4171,7 +4184,6 @@ export default function VitalObsPage() {
         <div className="modal-overlay" onClick={() => { setShowVitalViewModal(false); setViewingRecord(null); }}>
           <div className="vital-detail-modal" onClick={(e) => e.stopPropagation()} style={{ minWidth: '500px', maxWidth: '700px' }}>
             <div className="vital-modal-header">Vitals Record</div>
-            
             <div className="vital-modal-section">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                 <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
@@ -4182,12 +4194,19 @@ export default function VitalObsPage() {
                   <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
                     <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>GCS</div>
                     <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.gcs}</div>
+                    {viewingRecord.gcsEye && <div style={{ fontSize: '12px', color: '#4a5568' }}>Eye: {viewingRecord.gcsEye}</div>}
+                    {viewingRecord.gcsVerbal && <div style={{ fontSize: '12px', color: '#4a5568' }}>Verbal: {viewingRecord.gcsVerbal}</div>}
+                    {viewingRecord.gcsMotor && <div style={{ fontSize: '12px', color: '#4a5568' }}>Motor: {viewingRecord.gcsMotor}</div>}
                   </div>
                 )}
                 {viewingRecord.heartRate && (
                   <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
                     <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Heart Rate</div>
                     <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.heartRate}</div>
+                    {viewingRecord.hrLocation && <div style={{ fontSize: '12px', color: '#4a5568' }}>Location: {viewingRecord.hrLocation}</div>}
+                    {viewingRecord.hrStrength && <div style={{ fontSize: '12px', color: '#4a5568' }}>Strength: {viewingRecord.hrStrength}</div>}
+                    {viewingRecord.hrRegularity && <div style={{ fontSize: '12px', color: '#4a5568' }}>Regularity: {viewingRecord.hrRegularity}</div>}
+                    {viewingRecord.hrNotes && <div style={{ fontSize: '12px', color: '#4a5568' }}>Notes: {viewingRecord.hrNotes}</div>}
                   </div>
                 )}
                 {viewingRecord.respiratoryRate && (
@@ -4200,12 +4219,15 @@ export default function VitalObsPage() {
                   <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
                     <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Blood Pressure</div>
                     <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.bloodPressure}</div>
+                    {viewingRecord.bpMethod && <div style={{ fontSize: '12px', color: '#4a5568' }}>Method: {viewingRecord.bpMethod}</div>}
+                    {viewingRecord.bpPosition && <div style={{ fontSize: '12px', color: '#4a5568' }}>Position: {viewingRecord.bpPosition}</div>}
                   </div>
                 )}
                 {viewingRecord.spo2 && (
                   <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
                     <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>SpO2</div>
                     <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.spo2}</div>
+                    {viewingRecord.spO2Conditions && <div style={{ fontSize: '12px', color: '#4a5568' }}>Conditions: {viewingRecord.spO2Conditions}</div>}
                   </div>
                 )}
                 {viewingRecord.ecg && (
@@ -4236,12 +4258,17 @@ export default function VitalObsPage() {
                   <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
                     <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Pain Score</div>
                     <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.painScore}</div>
+                    {viewingRecord.painScoreValue && <div style={{ fontSize: '12px', color: '#4a5568' }}>Value: {viewingRecord.painScoreValue}</div>}
                   </div>
                 )}
                 {viewingRecord.pupils && (
                   <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
                     <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Pupils</div>
                     <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.pupils}</div>
+                    {viewingRecord.pupilSizeLeft && <div style={{ fontSize: '12px', color: '#4a5568' }}>Left Size: {viewingRecord.pupilSizeLeft}</div>}
+                    {viewingRecord.pupilSizeRight && <div style={{ fontSize: '12px', color: '#4a5568' }}>Right Size: {viewingRecord.pupilSizeRight}</div>}
+                    {viewingRecord.pupilReactsLeft && <div style={{ fontSize: '12px', color: '#4a5568' }}>Left Reacts: {viewingRecord.pupilReactsLeft}</div>}
+                    {viewingRecord.pupilReactsRight && <div style={{ fontSize: '12px', color: '#4a5568' }}>Right Reacts: {viewingRecord.pupilReactsRight}</div>}
                   </div>
                 )}
                 {viewingRecord.etco2 && (
@@ -4254,6 +4281,7 @@ export default function VitalObsPage() {
                   <div style={{ padding: '10px', backgroundColor: '#f7f7f7', borderRadius: '4px', border: '1px solid #ccc' }}>
                     <div style={{ fontSize: '11px', color: '#718096', fontWeight: 'bold', marginBottom: '4px' }}>Skin</div>
                     <div style={{ fontSize: '14px', color: '#4a5568' }}>{viewingRecord.skin}</div>
+                    {viewingRecord.skinColor && <div style={{ fontSize: '12px', color: '#4a5568' }}>Colour: {viewingRecord.skinColor}</div>}
                   </div>
                 )}
                 {viewingRecord.pefr && (
@@ -4270,7 +4298,6 @@ export default function VitalObsPage() {
                 </div>
               )}
             </div>
-
             <div className="vital-modal-actions" style={{ justifyContent: 'center' }}>
               <button className="vital-modal-btn ok" onClick={() => { setShowVitalViewModal(false); setViewingRecord(null); }}>Go Back</button>
             </div>
@@ -6096,16 +6123,7 @@ export default function VitalObsPage() {
               gap: '10px'
             }}>
               <button
-                onClick={() => {
-                  // Reset form and close
-                  setCompetencyTime('')
-                  setCompetencyUnderstandInfo('')
-                  setCompetencyUnderstandConsequences('')
-                  setCompetencyRememberInfo('')
-                  setCompetencySelfHarm('')
-                  setCompetencyValidationErrors({})
-                  setShowCompetencyModal(false)
-                }}
+                onClick={handleCompetencyCancel}
                 style={{
                   padding: '10px 25px',
                   background: 'linear-gradient(to bottom, #e0e0e0, #c0c0c0)',

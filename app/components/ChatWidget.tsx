@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { getLoggedInUsers } from '../utils/userService';
 import {
   subscribeToRealtimeEvents,
   sendChatMessage,
@@ -44,6 +45,18 @@ export default function ChatWidget({
   const [showMentions, setShowMentions] = useState(false);
   const [mentionFilter, setMentionFilter] = useState('');
   const [mentionIndex, setMentionIndex] = useState(0);
+  const [loggedInUsers, setLoggedInUsers] = useState<{ discordId: string; callsign: string }[]>([]);
+    // Load all logged-in users for mentions
+    useEffect(() => {
+      const updateUsers = () => {
+        const users = getLoggedInUsers();
+        setLoggedInUsers(users.map(u => ({ discordId: u.discordId, callsign: u.callsign })));
+      };
+      updateUsers();
+      // Optionally, poll every 30s for updates
+      const interval = setInterval(updateUsers, 30000);
+      return () => clearInterval(interval);
+    }, []);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -228,20 +241,20 @@ export default function ChatWidget({
   // Handle key events
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (showMentions) {
-      const filteredCollaborators = collaborators.filter(c => 
-        c.callsign.toLowerCase().includes(mentionFilter)
+      const filteredUsers = loggedInUsers.filter(u =>
+        u.callsign.toLowerCase().includes(mentionFilter) && u.discordId !== discordId
       );
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setMentionIndex(prev => (prev + 1) % filteredCollaborators.length);
+        setMentionIndex(prev => (prev + 1) % filteredUsers.length);
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setMentionIndex(prev => (prev - 1 + filteredCollaborators.length) % filteredCollaborators.length);
+        setMentionIndex(prev => (prev - 1 + filteredUsers.length) % filteredUsers.length);
       } else if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
-        if (filteredCollaborators[mentionIndex]) {
-          insertMention(filteredCollaborators[mentionIndex].callsign);
+        if (filteredUsers[mentionIndex]) {
+          insertMention(filteredUsers[mentionIndex].callsign);
         }
       } else if (e.key === 'Escape') {
         setShowMentions(false);
@@ -315,8 +328,8 @@ export default function ChatWidget({
   };
 
   // Filtered collaborators for mention dropdown
-  const filteredCollaborators = collaborators.filter(c =>
-    c.callsign.toLowerCase().includes(mentionFilter) && c.discordId !== discordId
+  const filteredUsers = loggedInUsers.filter(u =>
+    u.callsign.toLowerCase().includes(mentionFilter) && u.discordId !== discordId
   );
 
   if (!isOpen) {
@@ -435,18 +448,18 @@ export default function ChatWidget({
             {/* Input */}
             <div className="p-3 border-t border-slate-700 relative">
               {/* Mention dropdown */}
-              {showMentions && filteredCollaborators.length > 0 && (
+              {showMentions && filteredUsers.length > 0 && (
                 <div className="absolute bottom-full left-3 right-3 mb-1 bg-slate-900 border border-slate-700 rounded-lg overflow-hidden shadow-lg">
-                  {filteredCollaborators.slice(0, 5).map((collab, i) => (
+                  {filteredUsers.slice(0, 5).map((user, i) => (
                     <button
-                      key={collab.discordId}
-                      onClick={() => insertMention(collab.callsign)}
+                      key={user.discordId}
+                      onClick={() => insertMention(user.callsign)}
                       className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-700 ${
                         i === mentionIndex ? 'bg-slate-700' : ''
                       }`}
                     >
                       <span className="text-blue-400">@</span>
-                      <span className="text-white">{collab.callsign}</span>
+                      <span className="text-white">{user.callsign}</span>
                     </button>
                   ))}
                 </div>

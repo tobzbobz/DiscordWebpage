@@ -1,3 +1,4 @@
+import ChatStrip from '../components/ChatStrip';
 "use client"
 
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -11,12 +12,11 @@ import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
 import PresenceIndicator from '../components/PresenceIndicator'
 import ConnectionStatus from '../components/ConnectionStatus'
 import CursorOverlay from '../components/CursorOverlay'
-import ChatWidget from '../components/ChatWidget'
 import VersionHistoryModal from '../components/VersionHistoryModal'
 import KeyboardShortcuts from '../components/KeyboardShortcuts'
 import { saveEPRFRecord, createEPRFRecord, getEPRFRecord } from '../utils/eprfHistoryService'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
-import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canEdit, canManageCollaborators } from '../utils/apiClient'
+import { checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canEdit, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
@@ -293,12 +293,7 @@ export default function IncidentPage() {
     router.push(`/dashboard?${params}`)
   }
 
-  const handleAdminPanel = () => {
-    const user = getCurrentUser()
-    if (user && isAdmin(user.discordId)) {
-      router.push('/admin')
-    }
-  }
+  // Admin Panel removed from incident page
 
   const handleTransferClick = () => {
     setShowTransferModal(true)
@@ -429,7 +424,7 @@ export default function IncidentPage() {
             }}></span>
           )}
         </button>
-        <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
+        {/* Admin Panel button removed from incident page */}
         <button className="nav-btn" onClick={handleLogout}>Logout</button>
         {incidentId && patientLetter && (
           <PresenceIndicator 

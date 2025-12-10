@@ -1,3 +1,4 @@
+import ChatStrip from '../components/ChatStrip';
 "use client"
 
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -11,8 +12,8 @@ import ManageCollaboratorsModal from '../components/ManageCollaboratorsModal'
 import ConnectionStatus from '../components/ConnectionStatus'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
-import ChatWidget from '../components/ChatWidget'
-import { isAdmin, checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
+import ChatStrip from '../components/ChatStrip';
+import { checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
 
 export const runtime = 'edge'
 
@@ -96,6 +97,8 @@ export default function PastMedicalHistoryPage() {
   // Canvas state for page 2
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [selectedInjury, setSelectedInjury] = useState('Abrasion')
+  // Delayed label rendering state
+  const [delayedLabel, setDelayedLabel] = useState<string | null>(null)
   // Drawing state declarations are at the top of the function
 
   const injuryTypes = [
@@ -156,12 +159,7 @@ export default function PastMedicalHistoryPage() {
     router.push(`/dashboard?${params}`)
   }
 
-  const handleAdminPanel = () => {
-    const user = getCurrentUser()
-    if (user && isAdmin(user.discordId)) {
-      router.push('/admin')
-    }
-  }
+  // Admin Panel removed from past-medical-history page
 
   const handleTransferClick = () => {
     setShowTransferModal(true)
@@ -457,18 +455,17 @@ export default function PastMedicalHistoryPage() {
 
     // Draw current line being drawn
     if (currentLine.length >= 1) {
-      // Draw label immediately at the first click point
-      ctx.font = 'bold 11px Segoe UI, Tahoma, sans-serif'
-      ctx.letterSpacing = '1px'
-      const labelX = currentLine[0].x + 5
-      const labelY = currentLine[0].y - 5
-      
-      // Draw text with slight shadow for readability
-      ctx.fillStyle = '#660000'
-      ctx.fillText(selectedInjury, labelX + 1, labelY + 1)
-      ctx.fillStyle = '#cc0000'
-      ctx.fillText(selectedInjury, labelX, labelY)
-      
+      // Delayed label rendering
+      if (delayedLabel) {
+        ctx.font = 'bold 13px "Segoe UI", Arial, Helvetica, sans-serif'
+        ctx.letterSpacing = '1.5px'
+        const labelX = currentLine[0].x + 5
+        const labelY = currentLine[0].y - 5
+        ctx.fillStyle = '#660000'
+        ctx.fillText(delayedLabel, labelX + 1, labelY + 1)
+        ctx.fillStyle = '#cc0000'
+        ctx.fillText(delayedLabel, labelX, labelY)
+      }
       // Draw the line if there are more points
       if (currentLine.length > 1) {
         ctx.beginPath()
@@ -558,9 +555,12 @@ export default function PastMedicalHistoryPage() {
     const scaleY = canvas.height / rect.height
     const x = (e.clientX - rect.left) * scaleX
     const y = (e.clientY - rect.top) * scaleY
-    
     setIsDrawing(true)
     setCurrentLine([{ x, y }])
+    setDelayedLabel(null)
+    setTimeout(() => {
+      setDelayedLabel(selectedInjury)
+    }, 350)
   }
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -585,7 +585,6 @@ export default function PastMedicalHistoryPage() {
       }
       const newLines = [...drawnLines, newLine]
       setDrawnLines(newLines)
-      
       // Update history
       const newHistory = history.slice(0, historyIndex + 1)
       newHistory.push(newLines)
@@ -594,6 +593,7 @@ export default function PastMedicalHistoryPage() {
     }
     setIsDrawing(false)
     setCurrentLine([])
+    setDelayedLabel(null)
   }
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.2, 3))
@@ -937,7 +937,7 @@ export default function PastMedicalHistoryPage() {
             }}></span>
           )}
         </button>
-        <button className="nav-btn" onClick={handleAdminPanel}>Admin Panel</button>
+        {/* Admin Panel button removed from past-medical-history page */}
         <button className="nav-btn" onClick={handleLogout}>Logout</button>
         {incidentId && patientLetter && (
           <PresenceIndicator 
@@ -1157,7 +1157,7 @@ export default function PastMedicalHistoryPage() {
             <div className="canvas-container">
               <div className="canvas-left">
                 <div className="canvas-toolbar">
-                  <button className="toolbar-btn" onClick={handleZoomIn} title="Zoom In">🔍+</button>
+                  <button className="toolbar-btn" style={{ minWidth: 80, fontSize: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} onClick={handleZoomIn} title="Zoom In">🔍 Zoom In</button>
                   <button className="toolbar-btn" onClick={handleZoomOut} title="Zoom Out">🔍-</button>
                   <button className="toolbar-btn" onClick={handleUndo} title="Undo">↩</button>
                   <button className="toolbar-btn" onClick={handleRedo} title="Redo">↪</button>
@@ -1212,7 +1212,7 @@ export default function PastMedicalHistoryPage() {
       <div className="eprf-footer incident-footer">
         <ConnectionStatus />
         <div className="footer-left">
-          <button className="footer-btn discovery" onClick={handleAddPatientClick}>Add Patient</button>
+          <button className="footer-btn green" onClick={handleAddPatientClick}>Add Patient</button>
           <button 
             className={`footer-btn green ${!canTransfer ? 'disabled' : ''}`} 
             onClick={handleTransferClick}
@@ -1344,15 +1344,17 @@ export default function PastMedicalHistoryPage() {
         currentUserPermission={userPermission || 'view'}
       />
       {/* Chat Widget */}
-      {currentUser && (
-        <ChatWidget
+      {currentUser && showChat && (
+        <ChatStrip
           incidentId={incidentId}
           discordId={currentUser.discordId}
           callsign={currentUser.callsign}
           patientLetter={patientLetter}
-          onUnreadChange={setChatUnreadCount}
-          isOpen={showChat}
+          collaborators={collaborators}
         />
+      )}
+      {showChat && (
+        <div className="fixed inset-0 z-40 bg-black/30 cursor-pointer" onClick={() => setShowChat(false)} />
       )}
     </div>
   );
