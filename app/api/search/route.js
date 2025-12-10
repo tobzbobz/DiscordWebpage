@@ -1,3 +1,4 @@
+// File removed to resolve conflict with pages/api/search.js
 import { neon } from '@neondatabase/serverless';
 
 export const runtime = 'edge';

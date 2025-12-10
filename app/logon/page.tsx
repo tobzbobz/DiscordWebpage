@@ -26,39 +26,38 @@ const VEHICLES = [
 ]
 
 export default function LogonPage() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
-  const [discordId, setDiscordId] = useState('')
-  const [discordUsername, setDiscordUsername] = useState('')
-  const [callsign, setCallsign] = useState('')
-  const [vehicle, setVehicle] = useState('')
-  const [errors, setErrors] = useState<{discordId?: string, callsign?: string, vehicle?: string}>({})
-  const [loading, setLoading] = useState(true)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [discordId, setDiscordId] = useState('');
+  const [discordUsername, setDiscordUsername] = useState('');
+  const [callsign, setCallsign] = useState('');
+  const [vehicle, setVehicle] = useState('');
+  const [errors, setErrors] = useState<{discordId?: string, callsign?: string, vehicle?: string}>({});
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    // Get token from URL or fetch user info
-    const token = searchParams?.get('token')
+    // Always prompt for fleet ID and vehicle type, even for returning users
+    const token = searchParams?.get('token');
     if (token) {
-      // Fetch Discord user info
       fetch('https://discord.com/api/users/@me', {
         headers: { Authorization: `Bearer ${token}` }
       })
         .then(r => r.json())
         .then(user => {
-          setDiscordId(user.id || '')
-          setDiscordUsername(user.username || '')
-          setLoading(false)
+          setDiscordId(user.id || '');
+          setDiscordUsername(user.username || '');
+          setLoading(false);
         })
         .catch(() => {
-          setErrors({ discordId: 'Failed to fetch Discord user info' })
-          setLoading(false)
-        })
+          setErrors({ discordId: 'Failed to fetch Discord user info' });
+          setLoading(false);
+        });
     } else {
-      setLoading(false)
-      setErrors({ discordId: 'No authentication token found. Please log in first.' })
+      setLoading(false);
+      setErrors({ discordId: 'No authentication token found. Please log in first.' });
     }
-  }, [searchParams])
+  }, [searchParams]);
 
   const validateCallsign = (value: string): boolean => {
     return VALID_CALLSIGNS.some(pattern => pattern.test(value))

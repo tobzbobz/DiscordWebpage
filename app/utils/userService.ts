@@ -22,13 +22,13 @@ export function getLoggedInUsers(): User[] {
     const data = localStorage.getItem(USERS_KEY)
     if (!data) return []
     const users = JSON.parse(data)
-    // Filter out users who logged in more than 24 hours ago
-    const now = new Date().getTime()
-    const dayInMs = 24 * 60 * 60 * 1000
+    // Filter out users who logged in more than 12 hours ago
+    const now = new Date().getTime();
+    const twelveHoursMs = 12 * 60 * 60 * 1000;
     return users.filter((user: User) => {
-      const loginTime = new Date(user.loginTime).getTime()
-      return now - loginTime < dayInMs
-    })
+      const loginTime = new Date(user.loginTime).getTime();
+      return now - loginTime < twelveHoursMs;
+    });
   } catch {
     return []
   }
