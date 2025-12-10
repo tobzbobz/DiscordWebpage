@@ -1,4 +1,3 @@
-import ChatStrip from '../components/ChatStrip';
 "use client"
 
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -13,6 +12,7 @@ import ConnectionStatus from '../components/ConnectionStatus'
 import PresenceIndicator from '../components/PresenceIndicator'
 import { getCurrentUser, clearCurrentUser } from '../utils/userService'
 import { checkEPRFAccess, checkCanTransferPatient, PermissionLevel, canManageCollaborators } from '../utils/apiClient'
+import ChatStrip from '../components/ChatStrip';
 
 export const runtime = 'edge'
 
