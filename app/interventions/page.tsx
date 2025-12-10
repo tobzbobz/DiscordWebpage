@@ -203,7 +203,7 @@ export default function InterventionsPage() {
       if (!incidentId) return
       
       try {
-        const access = await checkEPRFAccess(incidentId)
+        const access = await checkEPRFAccess(incidentId, patientLetter)
         setUserPermission(access.permission)
         
         const transferPermission = await checkCanTransferPatient(incidentId, patientLetter)
